@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
+import { photoForKind, takeUniquePhoto, photoForRow } from './shopPhotos.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.resolve(__dirname, process.env.DB_PATH || '../../database/market.db');
@@ -417,6 +418,96 @@ export function seedMissingShopKinds() {
   tx();
 }
 
+export function seedShopVariants() {
+  const user = db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get();
+  const city = db.prepare('SELECT id, latitude, longitude FROM cities ORDER BY id LIMIT 1').get();
+  if (!user || !city) return;
+  const kinds = db.prepare('SELECT clothing_category AS cat, item_kind AS kind, COUNT(*) AS n FROM clothing GROUP BY clothing_category, item_kind').all();
+  const insertListing = db.prepare(`
+    INSERT INTO listings (user_id, category_id, type, title, description, price, currency, city_id, address, district, latitude, longitude, status, views, is_vip, is_top, bumped_at, published_at)
+    VALUES (?, NULL, 'clothing', ?, ?, ?, 'TJS', ?, '', '', ?, ?, 'active', 16, 0, 0, datetime('now'), datetime('now'))
+  `);
+  const insertCL = db.prepare(
+    'INSERT INTO clothing (listing_id, clothing_category, item_kind, size, brand, color, condition, season) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+  );
+  const insertMedia = db.prepare('INSERT INTO listing_media (listing_id, url, type, sort_order) VALUES (?, ?, ?, ?)');
+  const sample = db.prepare(
+    `SELECT l.title, l.price, cl.size, cl.brand, cl.color, cl.condition, cl.season
+     FROM clothing cl JOIN listings l ON l.id = cl.listing_id
+     WHERE cl.clothing_category = ? AND cl.item_kind = ? LIMIT 1`,
+  );
+  const extras = [
+    { tag: 'новая', add: 20 },
+    { tag: 'б/у', add: -15 },
+    { tag: 'премиум', add: 40 },
+  ];
+  const tx = db.transaction(() => {
+    for (const row of kinds) {
+      if (row.n >= 4) continue;
+      const base = sample.get(row.cat, row.kind);
+      if (!base) continue;
+      for (let i = 0; i < 4 - row.n; i++) {
+        const ex = extras[i] || extras[0];
+        const title = `${base.title} · ${ex.tag}`;
+        const price = Math.max(20, Number(base.price) + ex.add + i * 8);
+        const info = insertListing.run(user.id, title, `${title}. Только этот вид товара.`, price, city.id, city.latitude, city.longitude);
+        insertCL.run(info.lastInsertRowid, row.cat, row.kind, base.size || '', base.brand || '', base.color || '', base.condition || 'хорошее', base.season || '');
+        insertMedia.run(info.lastInsertRowid, photoForKind(row.kind, info.lastInsertRowid, row.cat), 'image', 0);
+      }
+    }
+  });
+  tx();
+}
+
+export function ensureListingPhotos() {
+  const insert = db.prepare(`INSERT INTO listing_media (listing_id, url, type, sort_order) VALUES (?, ?, 'image', 0)`);
+  const kindOf = db.prepare('SELECT item_kind, clothing_category FROM clothing WHERE listing_id = ?');
+  const missing = db
+    .prepare(
+      `SELECT l.id FROM listings l
+       WHERE NOT EXISTS (SELECT 1 FROM listing_media m WHERE m.listing_id = l.id AND m.type = 'image')`,
+    )
+    .all();
+  for (const row of missing) {
+    const cl = kindOf.get(row.id);
+    insert.run(row.id, photoForKind(cl?.item_kind, row.id, cl?.clothing_category));
+  }
+}
+
+export function applyShopPhotos() {
+  const rows = db
+    .prepare(
+      `SELECT m.id AS media_id, l.id AS listing_id, l.type, l.title,
+              cl.item_kind, cl.clothing_category,
+              c.body_type, c.brand, c.model, re.property_type, f.service_category
+       FROM listing_media m
+       JOIN listings l ON l.id = m.listing_id
+       LEFT JOIN clothing cl ON cl.listing_id = l.id
+       LEFT JOIN cars c ON c.listing_id = l.id
+       LEFT JOIN real_estate re ON re.listing_id = l.id
+       LEFT JOIN freelance_services f ON f.listing_id = l.id
+       WHERE m.type = 'image'
+       ORDER BY l.type, cl.clothing_category, cl.item_kind, c.body_type, re.property_type, f.service_category, l.id`,
+    )
+    .all();
+  const upd = db.prepare('UPDATE listing_media SET url = ? WHERE id = ?');
+  const usedByKey = new Map();
+  const tx = db.transaction(() => {
+    for (const r of rows) {
+      const key = `${r.type}:${r.clothing_category || ''}:${r.item_kind || ''}:${r.body_type || ''}:${r.property_type || ''}:${r.service_category || ''}`;
+      if (!usedByKey.has(key)) usedByKey.set(key, new Set());
+      const used = usedByKey.get(key);
+      const url = photoForRow({ ...r, id: r.listing_id }, used);
+      used.add(url);
+      upd.run(url, r.media_id);
+    }
+  });
+  tx();
+}
+
 seedClothingIfEmpty();
 seedShopExtrasIfEmpty();
 seedMissingShopKinds();
+seedShopVariants();
+ensureListingPhotos();
+applyShopPhotos();

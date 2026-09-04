@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { X, ZoomIn } from 'lucide-react'
+import { Photo } from './Photo'
 
-export function Gallery({ images, videoUrl }: { images: string[]; videoUrl?: string | null }) {
-  const all = [...images, ...(videoUrl ? [videoUrl] : [])]
+export function Gallery({ images, videoUrl, fallbackSrc }: { images: string[]; videoUrl?: string | null; fallbackSrc?: string }) {
+  const pics = images.length ? images : fallbackSrc ? [fallbackSrc] : []
+  const all = [...pics, ...(videoUrl ? [videoUrl] : [])]
   const [i, setI] = useState(0)
   const [full, setFull] = useState(false)
   const current = all[i]
@@ -25,7 +27,7 @@ export function Gallery({ images, videoUrl }: { images: string[]; videoUrl?: str
       {isVideo ? (
         <video src={current} controls className="max-h-[70vh] w-full object-contain" />
       ) : (
-        <img src={current} alt="" className="max-h-[70vh] w-full cursor-zoom-in object-cover" onClick={() => setFull(true)} />
+        <img src={current} alt="" className="max-h-[70vh] w-full cursor-zoom-in object-cover" referrerPolicy="no-referrer" onClick={() => setFull(true)} onError={(e) => { if (fallbackSrc) (e.currentTarget as HTMLImageElement).src = fallbackSrc }} />
       )}
       {!isVideo && (
         <button onClick={() => setFull(true)} className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white/90">
@@ -49,7 +51,7 @@ export function Gallery({ images, videoUrl }: { images: string[]; videoUrl?: str
               {videoUrl && idx === all.length - 1 ? (
                 <div className="grid h-full place-items-center bg-ink text-xs text-white">VIDEO</div>
               ) : (
-                <img src={src} alt="" className="h-full w-full object-cover" />
+                <Photo src={src} alt="" fallbackSrc={fallbackSrc} className="h-full w-full object-cover" />
               )}
             </button>
           ))}

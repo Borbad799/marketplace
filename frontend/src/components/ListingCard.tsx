@@ -5,6 +5,8 @@ import { formatPrice } from '../utils/format'
 import { useAuth, useUi } from '../store/auth'
 import { FavoritesApi } from '../services/api'
 import { useState } from 'react'
+import { Photo } from './Photo'
+import { photoForListing } from '../utils/shopPhotos'
 
 export function Stars({ value = 0, size = 14 }: { value?: number; size?: number }) {
   const full = Math.round(value)
@@ -17,7 +19,7 @@ export function Stars({ value = 0, size = 14 }: { value?: number; size?: number 
   )
 }
 
-export function ListingCard({ item, onChange }: { item: Listing; onChange?: (id: number, fav: boolean) => void }) {
+export function ListingCard({ item, onChange, photoUrl }: { item: Listing; onChange?: (id: number, fav: boolean) => void; photoUrl?: string }) {
   const user = useAuth((s) => s.user)
   const toast = useUi((s) => s.toast)
   const [fav, setFav] = useState(Boolean(item.favorited))
@@ -55,11 +57,12 @@ export function ListingCard({ item, onChange }: { item: Listing; onChange?: (id:
       className="group block overflow-hidden rounded-2xl bg-white shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-soft)]"
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-line">
-        {item.cover ? (
-          <img src={item.cover} alt={item.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-        ) : (
-          <div className="grid h-full place-items-center text-muted">Нет фото</div>
-        )}
+        <Photo
+          src={photoUrl || photoForListing(item)}
+          alt={item.title}
+          fallbackSrc={photoForListing(item, 1)}
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+        />
         <div className="absolute left-2 top-2 flex gap-1">
           {item.isTop && <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-white">TOP</span>}
           {item.isVip && <span className="rounded-full bg-ink/80 px-2 py-0.5 text-[11px] font-bold text-white">VIP</span>}

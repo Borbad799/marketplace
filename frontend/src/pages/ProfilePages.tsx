@@ -9,6 +9,8 @@ import { STATUS_LABEL, TYPE_LABEL } from '../utils/format'
 import { Bell } from 'lucide-react'
 import { NotifApi } from '../services/api'
 import type { NotificationItem } from '../types'
+import { Photo } from '../components/Photo'
+import { photoForListing } from '../utils/shopPhotos'
 
 export default function ProfilePage() {
   const user = useAuth((s) => s.user)
@@ -118,7 +120,7 @@ export function MyListingsPage() {
         {items.length === 0 && <EmptyState />}
         {items.map((it) => (
           <div key={it.id} className="flex gap-3 rounded-3xl bg-white p-3 shadow-[var(--shadow-card)]">
-            <img src={it.cover || ''} className="h-24 w-28 rounded-2xl object-cover bg-line" alt="" />
+            <Photo src={photoForListing(it)} alt={it.title} fallbackSrc={photoForListing(it, 1)} className="h-24 w-28 rounded-2xl object-cover bg-line" />
             <div className="min-w-0 flex-1">
               <Link to={`/listings/${it.id}`} className="font-bold">{it.title}</Link>
               <p className="text-sm text-muted">{STATUS_LABEL[it.status]} {it.rejectReason ? `· ${it.rejectReason}` : ''}</p>

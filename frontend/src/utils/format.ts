@@ -51,6 +51,7 @@ export const TRANSMISSIONS = ['автомат', 'механика', 'робот'
 export const FUELS = ['бензин', 'дизель', 'гибрид', 'электро', 'газ']
 export const DRIVES = ['передний', 'задний', 'полный']
 export const CONDITIONS = ['новое', 'отличное', 'хорошее', 'среднее', 'на запчасти']
+export const CLOTHING_CONDITIONS = ['новое', 'отличное', 'хорошее', 'среднее']
 
 export const FREELANCE_CATS = [
   { value: 'programming', label: 'Программирование' },

@@ -5,19 +5,8 @@ import { CardSkeleton, ListingCard } from '../components/ListingCard'
 import { EmptyState, ErrorState } from '../components/Layout'
 import { ListingsApi } from '../services/api'
 import type { Listing } from '../types'
-import { MapView } from '../components/MapView'
-import { useNavigate } from 'react-router-dom'
-
-const cats = [
-  { to: '/men', emoji: '👔', title: 'Мужская одежда', sub: 'Куртки, джинсы, футболки' },
-  { to: '/women', emoji: '👗', title: 'Женская одежда', sub: 'Платья, пальто, блузки' },
-  { to: '/kids', emoji: '🧒', title: 'Детская', sub: 'Для мальчиков и девочек' },
-  { to: '/shoes', emoji: '👟', title: 'Обувь', sub: 'Кроссовки, туфли, ботинки' },
-  { to: '/electronics', emoji: '📱', title: 'Электроника', sub: 'Телефоны, ТВ, ноутбуки' },
-  { to: '/home', emoji: '🏠', title: 'Для дома', sub: 'Мебель, кухня, декор' },
-  { to: '/beauty', emoji: '💄', title: 'Красота', sub: 'Уход, макияж, парфюм' },
-  { to: '/sport', emoji: '⚽', title: 'Спорт', sub: 'Тренажёры, велосипеды' },
-]
+import { CLOTHING_NAV } from '../utils/format'
+import { photosForListings } from '../utils/shopPhotos'
 
 export default function HomePage() {
   const [popular, setPopular] = useState<Listing[]>([])
@@ -25,29 +14,25 @@ export default function HomePage() {
   const [cars, setCars] = useState<Listing[]>([])
   const [fl, setFl] = useState<Listing[]>([])
   const [cl, setCl] = useState<Listing[]>([])
-  const [nearby, setNearby] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(false)
-  const nav = useNavigate()
 
   async function load() {
     setErr(false)
     setLoading(true)
     try {
-      const [p, a, b, c, d, n] = await Promise.all([
+      const [p, a, b, c, d] = await Promise.all([
         ListingsApi.popular(),
-        ListingsApi.list({ type: 'real_estate', limit: 4 }),
-        ListingsApi.list({ type: 'cars', limit: 4 }),
-        ListingsApi.list({ type: 'freelance', limit: 4 }),
-        ListingsApi.list({ type: 'clothing', limit: 4 }),
-        ListingsApi.list({ lat: 38.5598, lng: 68.787, limit: 30 }),
+        ListingsApi.list({ type: 'real_estate', limit: 12 }),
+        ListingsApi.list({ type: 'cars', limit: 12 }),
+        ListingsApi.list({ type: 'freelance', limit: 12 }),
+        ListingsApi.list({ type: 'clothing', limit: 12 }),
       ])
       setPopular(p.data.items)
       setRe(a.data.items)
       setCars(b.data.items)
       setFl(c.data.items)
       setCl(d.data.items)
-      setNearby(n.data.items)
     } catch {
       setErr(true)
     } finally {
@@ -61,7 +46,9 @@ export default function HomePage() {
 
   if (err) return <ErrorState onRetry={load} />
 
-  const Section = ({ title, to, items }: { title: string; to: string; items: Listing[] }) => (
+  const Section = ({ title, to, items }: { title: string; to: string; items: Listing[] }) => {
+    const photos = photosForListings(items)
+    return (
     <section className="mt-10">
       <div className="mb-4 flex items-end justify-between">
         <h2 className="text-xl font-extrabold">{title}</h2>
@@ -74,32 +61,36 @@ export default function HomePage() {
       ) : items.length ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {items.map((it) => (
-            <ListingCard key={it.id} item={it} />
+            <ListingCard key={it.id} item={it} photoUrl={photos[it.id]} />
           ))}
         </div>
       ) : (
         <EmptyState />
       )}
     </section>
-  )
+    )
+  }
 
   return (
     <div>
       <section className="rounded-[28px] bg-white px-5 py-8 shadow-[var(--shadow-card)] md:px-10 md:py-12">
         <p className="text-sm font-semibold text-primary">Маркетплейс Таджикистана</p>
-        <h1 className="mt-1 max-w-xl text-3xl font-extrabold leading-tight md:text-4xl">Найдите жильё, авто и специалистов рядом с вами</h1>
-        <div className="mt-6 max-w-2xl">
-          <SearchBar large />
+        <div className="mt-1 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <h1 className="max-w-xl text-3xl font-extrabold leading-tight md:text-4xl">Найдите жильё, авто и специалистов рядом с вами</h1>
+          <div className="w-full shrink-0 lg:max-w-md">
+            <SearchBar large />
+          </div>
         </div>
         <p className="mt-3 text-sm text-muted">Например: Квартира в Душанбе · Toyota Camry · Дизайнер логотипа</p>
-        <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {cats.map((c) => (
-            <Link key={c.to} to={c.to} className="flex items-center gap-4 rounded-2xl bg-bg px-4 py-4 transition hover:bg-primary/5">
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-2xl shadow-sm">{c.emoji}</span>
-              <span>
-                <span className="block font-bold">{c.title}</span>
-                <span className="text-sm text-muted">{c.sub}</span>
-              </span>
+        <div className="mt-6 grid grid-cols-4 gap-1.5 sm:gap-2">
+          {CLOTHING_NAV.map((l) => (
+            <Link
+              key={l.to}
+              to={l.to}
+              className="flex min-h-[64px] flex-col items-center justify-center rounded-md border border-line bg-bg px-1 py-2 text-center shadow-sm transition hover:border-primary/40 hover:shadow sm:min-h-[68px] sm:rounded-lg"
+            >
+              <span className="text-lg leading-none sm:text-xl">{l.emoji}</span>
+              <span className="mt-1 line-clamp-2 text-[10px] font-bold leading-tight sm:text-xs">{l.label}</span>
             </Link>
           ))}
         </div>
@@ -109,15 +100,6 @@ export default function HomePage() {
       <Section title="🏠 Недвижимость" to="/real-estate" items={re} />
       <Section title="🚗 Автомобили" to="/cars" items={cars} />
       <Section title="💼 Фриланс" to="/freelance" items={fl} />
-      <section className="mt-10">
-        <div className="mb-4 flex items-end justify-between">
-          <h2 className="text-xl font-extrabold">📍 Объявления рядом</h2>
-          <Link to="/nearby" className="text-sm font-bold text-primary">
-            Карта
-          </Link>
-        </div>
-        <MapView items={nearby} onSelect={(id) => nav(`/listings/${id}`)} />
-      </section>
     </div>
   )
 }

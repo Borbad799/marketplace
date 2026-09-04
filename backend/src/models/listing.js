@@ -287,13 +287,17 @@ export function listQuery({
   }
 
   if (type === 'clothing') {
-    if (extraFilters.clothingCategory) {
+    if (extraFilters.clothingCategory && extraFilters.itemKind) {
+      where.push(
+        'EXISTS (SELECT 1 FROM clothing cl WHERE cl.listing_id = l.id AND cl.clothing_category = ? AND cl.item_kind = ?)',
+      );
+      params.push(extraFilters.clothingCategory, extraFilters.itemKind);
+    } else if (extraFilters.clothingCategory) {
       where.push('EXISTS (SELECT 1 FROM clothing cl WHERE cl.listing_id = l.id AND cl.clothing_category = ?)');
       params.push(extraFilters.clothingCategory);
-    }
-    if (extraFilters.itemKind) {
-      where.push('EXISTS (SELECT 1 FROM clothing cl WHERE cl.listing_id = l.id AND (cl.item_kind = ? OR cl.item_kind LIKE ? OR l.title LIKE ?))');
-      params.push(extraFilters.itemKind, `%${extraFilters.itemKind}%`, `%${extraFilters.itemKind}%`);
+    } else if (extraFilters.itemKind) {
+      where.push('EXISTS (SELECT 1 FROM clothing cl WHERE cl.listing_id = l.id AND cl.item_kind = ?)');
+      params.push(extraFilters.itemKind);
     }
     if (extraFilters.size) {
       where.push('EXISTS (SELECT 1 FROM clothing cl WHERE cl.listing_id = l.id AND cl.size = ?)');

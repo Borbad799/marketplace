@@ -8,6 +8,7 @@ import { ListingsApi, MessagesApi, PromoApi, ReportsApi, ReviewsApi } from '../s
 import { useAuth, useUi } from '../store/auth'
 import type { Listing } from '../types'
 import { formatPrice, REPORT_REASONS, timeAgo, TYPE_LABEL } from '../utils/format'
+import { photoForListing } from '../utils/shopPhotos'
 import { Flag, Heart, MessageCircle, Phone, Share2 } from 'lucide-react'
 import { FavoritesApi } from '../services/api'
 
@@ -38,7 +39,11 @@ export default function ListingPage() {
   if (err) return <ErrorState onRetry={load} />
   if (!item) return <div className="h-80 animate-pulse rounded-3xl bg-line" />
 
-  const images = (item.media || []).filter((m) => m.type === 'image').map((m) => m.url)
+  const kindPhoto = photoForListing(item)
+  const images = (item.media || [])
+    .filter((m) => m.type === 'image')
+    .map((_, i) => photoForListing(item, i))
+    .filter(Boolean)
   const video = (item.media || []).find((m) => m.type === 'video')?.url || item.videoUrl
   const mine = user?.id === item.userId
 
@@ -71,7 +76,7 @@ export default function ListingPage() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
       <div className="space-y-4">
-        <Gallery images={images} videoUrl={video} />
+        <Gallery images={images} videoUrl={video} fallbackSrc={kindPhoto} />
         <div className="rounded-3xl bg-white p-5 shadow-[var(--shadow-card)]">
           <h2 className="font-extrabold">Описание</h2>
           <p className="mt-2 whitespace-pre-wrap leading-relaxed text-ink/80">{item.description}</p>

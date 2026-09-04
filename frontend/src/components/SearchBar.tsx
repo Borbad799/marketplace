@@ -5,6 +5,8 @@ import { MetaApi } from '../services/api'
 import { useDebounce } from '../hooks/useDebounce'
 import type { Category, City, Listing } from '../types'
 import { TYPE_LABEL } from '../utils/format'
+import { Photo } from './Photo'
+import { photoForListing } from '../utils/shopPhotos'
 
 type Suggest = { listings: Listing[]; cities: City[]; categories: Category[] }
 
@@ -48,7 +50,7 @@ export function SearchBar({ large = false, initial = '', type }: { large?: boole
           e.preventDefault()
           go()
         }}
-        className={`flex items-center gap-2 rounded-2xl bg-white shadow-[var(--shadow-card)] ${large ? 'h-14 px-4' : 'h-11 px-3'}`}
+        className={`flex items-center gap-2 rounded-2xl ${large ? 'h-14 bg-bg px-4' : 'h-11 bg-white px-3 shadow-[var(--shadow-card)]'}`}
       >
         <Search className="shrink-0 text-muted" size={large ? 22 : 18} />
         <input
@@ -85,7 +87,7 @@ export function SearchBar({ large = false, initial = '', type }: { large?: boole
           ))}
           {data.listings.map((l) => (
             <button key={l.id} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-bg" onClick={() => nav(`/listings/${l.id}`)}>
-              <img src={l.cover || ''} alt="" className="h-10 w-10 rounded-lg object-cover bg-line" />
+              <Photo src={photoForListing(l)} alt={l.title} fallbackSrc={photoForListing(l, 1)} className="h-10 w-10 rounded-lg object-cover bg-line" />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold">{l.title}</span>
                 <span className="text-xs text-muted">

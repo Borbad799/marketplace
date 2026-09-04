@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ListingsApi, MetaApi } from '../services/api'
 import type { City, Listing, ListingType } from '../types'
 import { CardSkeleton, ListingCard } from '../components/ListingCard'
 import { EmptyState, ErrorState, inputClass } from '../components/Layout'
 import { SearchBar } from '../components/SearchBar'
-import { CAR_BODIES, CLOTHING_SUBS, FREELANCE_CATS, FUELS, PROPERTY_TYPES, RENOVATIONS, TRANSMISSIONS, TYPE_LABEL } from '../utils/format'
+import { CAR_BODIES, CLOTHING_NAV, CLOTHING_SUBS, FREELANCE_CATS, FUELS, PROPERTY_TYPES, RENOVATIONS, TRANSMISSIONS, TYPE_LABEL } from '../utils/format'
+import { photosForListings } from '../utils/shopPhotos'
+import { ChevronLeft } from 'lucide-react'
 
 const titles: Record<string, string> = {
   real_estate: 'Недвижимость',
@@ -28,7 +30,7 @@ export default function CatalogPage({ type, clothingCategory }: { type?: Listing
   const query = Object.fromEntries(params.entries())
 
   const filters = useMemo(
-    () => ({ ...query, type: t, clothingCategory: clothingCategory || query.clothingCategory, page, limit: 12 }),
+    () => ({ ...query, type: t, clothingCategory: clothingCategory || query.clothingCategory, page, limit: 60 }),
     [params.toString(), t, page, clothingCategory],
   )
 
@@ -68,15 +70,65 @@ export default function CatalogPage({ type, clothingCategory }: { type?: Listing
 
   const subLabel = (CLOTHING_SUBS[clothingCategory || ''] || []).find((s) => s.value === params.get('itemKind'))?.label
   const shopPage = Boolean(clothingCategory)
+  const inner = CLOTHING_SUBS[clothingCategory || ''] || []
+  const itemKind = params.get('itemKind') || ''
+  const parent = CLOTHING_NAV.find((c) => c.category === clothingCategory)
+  const shown = items.filter((it) => {
+    if (!clothingCategory) return true
+    const cat = it.clothing?.clothingCategory
+    const kind = it.clothing?.itemKind
+    if (cat !== clothingCategory) return false
+    if (itemKind && kind !== itemKind) return false
+    return true
+  })
+  const visible = shopPage ? shown : items
+  const photos = photosForListings(visible)
 
   const list = (
     <>
+      {shopPage && inner.length > 0 && (
+        <div className="mb-5 rounded-[22px] border border-line bg-bg p-3 sm:p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-0.5 rounded-full bg-white px-2 py-1 text-xs font-bold text-ink shadow-sm"
+            >
+              <ChevronLeft size={14} /> Назад
+            </Link>
+            <p className="truncate text-xs font-extrabold">
+              {parent?.emoji} {parent?.label || TYPE_LABEL[clothingCategory || '']}
+            </p>
+            <button
+              type="button"
+              onClick={() => set('itemKind', '')}
+              className={`ml-auto text-xs font-bold ${!itemKind ? 'text-primary' : 'text-muted'}`}
+            >
+              Все
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            {inner.map((s) => (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => set('itemKind', s.value)}
+                className={`flex min-h-[64px] flex-col items-center justify-center rounded-md border px-1 py-2 text-center shadow-sm transition sm:min-h-[68px] sm:rounded-lg ${
+                  itemKind === s.value ? 'border-primary bg-primary text-white' : 'border-line bg-white text-ink hover:border-primary/40 hover:shadow'
+                }`}
+              >
+                <span className="text-lg leading-none sm:text-xl">{s.emoji}</span>
+                <span className="mt-1 line-clamp-2 text-[10px] font-bold leading-tight sm:text-xs">{s.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold">
             {clothingCategory ? `${TYPE_LABEL[clothingCategory]}${subLabel ? ` · ${subLabel}` : ''}` : t ? titles[t] : 'Поиск'}
           </h1>
-          <p className="text-sm text-muted">{total} объявлений</p>
+          <p className="text-sm text-muted">{shopPage ? shown.length : total} объявлений</p>
         </div>
         <div className="sm:w-80">
           <SearchBar initial={params.get('q') || ''} type={t} />
@@ -84,12 +136,12 @@ export default function CatalogPage({ type, clothingCategory }: { type?: Listing
       </div>
       {loading ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}</div>
-      ) : items.length === 0 ? (
+      ) : visible.length === 0 ? (
         <EmptyState />
       ) : (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {items.map((it) => (
-            <ListingCard key={it.id} item={it} />
+          {visible.map((it) => (
+            <ListingCard key={it.id} item={it} photoUrl={photos[it.id]} />
           ))}
         </div>
       )}

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Header, BottomNav, Footer } from './Header'
 import { useAuth, useUi } from '../store/auth'
 import { X } from 'lucide-react'
@@ -6,13 +6,14 @@ import { X } from 'lucide-react'
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const toasts = useUi((s) => s.toasts)
   const dismiss = useUi((s) => s.dismiss)
+  const isHome = useLocation().pathname === '/'
   return (
     <div className="min-h-screen bg-bg">
-      <Header />
-      <main className="mx-auto max-w-6xl px-4 pb-20 pt-4 md:pb-10">{children}</main>
-      <Footer />
+      {!isHome && <Header />}
+      <main className={`mx-auto max-w-6xl px-4 pb-28 ${isHome ? 'pt-5' : 'pt-4'}`}>{children}</main>
+      {!isHome && <Footer />}
       <BottomNav />
-      <div className="fixed bottom-24 right-4 z-50 space-y-2 md:bottom-6">
+      <div className="fixed bottom-28 right-4 z-50 space-y-2">
         {toasts.map((t) => (
           <div
             key={t.id}
