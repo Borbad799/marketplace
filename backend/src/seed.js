@@ -1,35 +1,49 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
-import { db, initSchema } from './db.js';
+import { connectDb, db } from './db.js';
+import { isPostgres } from './db-client.js';
 
-initSchema();
-
-db.exec(`
-  DELETE FROM messages;
-  DELETE FROM conversations;
-  DELETE FROM notifications;
-  DELETE FROM favorites;
-  DELETE FROM reports;
-  DELETE FROM reviews;
-  DELETE FROM payments;
-  DELETE FROM promotions;
-  DELETE FROM listing_media;
-  DELETE FROM real_estate;
-  DELETE FROM cars;
-  DELETE FROM freelance_services;
-  DELETE FROM clothing;
-  DELETE FROM listings;
-  DELETE FROM otps;
-  DELETE FROM password_resets;
-  DELETE FROM banners;
-  DELETE FROM settings;
-  DELETE FROM profiles;
-  DELETE FROM categories;
-  DELETE FROM cities;
-  DELETE FROM users;
-`);
-const seq = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'").get();
-if (seq) db.exec('DELETE FROM sqlite_sequence');
+export async function runSeed() {
+  if (isPostgres) {
+    await db.exec(`
+      TRUNCATE TABLE
+        messages, conversations, notifications, favorites, reports, reviews,
+        payments, promotions, listing_media, real_estate, cars, freelance_services,
+        clothing, listings, otps, password_resets, banners, settings, profiles,
+        categories, cities, users
+      RESTART IDENTITY CASCADE
+    `);
+  } else {
+    await db.exec(`
+      DELETE FROM messages;
+      DELETE FROM conversations;
+      DELETE FROM notifications;
+      DELETE FROM favorites;
+      DELETE FROM reports;
+      DELETE FROM reviews;
+      DELETE FROM payments;
+      DELETE FROM promotions;
+      DELETE FROM listing_media;
+      DELETE FROM real_estate;
+      DELETE FROM cars;
+      DELETE FROM freelance_services;
+      DELETE FROM clothing;
+      DELETE FROM listings;
+      DELETE FROM otps;
+      DELETE FROM password_resets;
+      DELETE FROM banners;
+      DELETE FROM settings;
+      DELETE FROM profiles;
+      DELETE FROM categories;
+      DELETE FROM cities;
+      DELETE FROM users;
+    `);
+    try {
+      await db.exec('DELETE FROM sqlite_sequence');
+    } catch {
+      /* sqlite_sequence may be missing */
+    }
+  }
 
 const hash = (p) => bcrypt.hashSync(p, 10);
 
@@ -42,7 +56,7 @@ const cities = [
   ['Istaravshan', 'Истаравшан', 39.9142, 69.0],
 ];
 const insertCity = db.prepare('INSERT INTO cities (name, name_ru, latitude, longitude) VALUES (?, ?, ?, ?)');
-cities.forEach((c) => insertCity.run(...c));
+for (const c of cities) await insertCity.run(...c);
 
 const cats = [
   ['real-estate', 'Недвижимость', null, 'real_estate', 'home'],
@@ -77,7 +91,7 @@ const cats = [
   ['shoes', 'Обувь', 26, 'clothing', 'footprints'],
 ];
 const insertCat = db.prepare('INSERT INTO categories (slug, name, parent_id, type, icon) VALUES (?, ?, ?, ?, ?)');
-cats.forEach((c) => insertCat.run(...c));
+for (const c of cats) await insertCat.run(...c);
 
 const users = [
   ['Азиз Раҳимов', '+992900000001', 'admin@market.tj', hash('Admin123!'), 'https://i.pravatar.cc/150?img=12', 'admin', 5, 18],
@@ -92,9 +106,9 @@ const users = [
 const insertUser = db.prepare(
   'INSERT INTO users (name, phone, email, password, avatar, role, rating, reviews_count, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))',
 );
-users.forEach((u) => insertUser.run(...u));
+for (const u of users) await insertUser.run(...u);
 const insertProfile = db.prepare('INSERT INTO profiles (user_id, bio, city_id) VALUES (?, ?, ?)');
-[
+for (const p of [
   [1, 'Администратор ARZON MARKET', 1],
   [2, 'Продаю квартиру и ищу авто', 1],
   [3, 'Дизайнер логотипов и брендинга', 1],
@@ -103,7 +117,7 @@ const insertProfile = db.prepare('INSERT INTO profiles (user_id, bio, city_id) V
   [6, 'Грузоперевозки и спецтехника', 3],
   [7, 'SMM и маркетинг', 1],
   [8, 'Фронтенд-разработчик', 2],
-].forEach((p) => insertProfile.run(...p));
+]) await insertProfile.run(...p);
 
 const rePhotos = [
   ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1400&q=80', 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1400&q=80'],
@@ -158,8 +172,8 @@ const insertCL = db.prepare(
 );
 const insertMedia = db.prepare('INSERT INTO listing_media (listing_id, url, type, sort_order) VALUES (?, ?, ?, ?)');
 
-function addMedia(id, urls) {
-  urls.forEach((url, i) => insertMedia.run(id, url, 'image', i));
+async function addMedia(id, urls) {
+  for (let i = 0; i < urls.length; i++) await insertMedia.run(id, urls[i], 'image', i);
 }
 
 const realEstate = [
@@ -175,13 +189,14 @@ const realEstate = [
   [8, 3, 'Дом в Бохтаре, 120 м²', 'Семейный дом, сад, летняя кухня. Срочная продажа.', 38000, 'USD', 3, 'ул. Мирзо Турсунзода 22', 'центр', 37.837, 68.78, 'active', 73, 0, 0, 'house', 'sale', 4, 120, 1, 1, 'хороший', 1],
 ];
 
-db.transaction(() => {
-  realEstate.forEach((row, i) => {
+await db.transaction(async () => {
+  for (let i = 0; i < realEstate.length; i++) {
+    const row = realEstate[i];
     const [userId, catId, title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top, pType, deal, rooms, area, floor, floors, renovation, furniture] = row;
-    const info = insertListing.run(userId, catId, 'real_estate', title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top);
-    insertRE.run(info.lastInsertRowid, pType, deal, rooms, area, floor, floors, renovation, furniture);
-    addMedia(info.lastInsertRowid, rePhotos[i]);
-  });
+    const info = await insertListing.run(userId, catId, 'real_estate', title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top);
+    await insertRE.run(info.lastInsertRowid, pType, deal, rooms, area, floor, floors, renovation, furniture);
+    await addMedia(info.lastInsertRowid, rePhotos[i]);
+  }
 })();
 
 const carsData = [
@@ -197,13 +212,14 @@ const carsData = [
   [4, 15, 'Фары LED Toyota Camry 70', 'Оригинал, пара, без трещин. Самовывоз Душанбе/Худжанд.', 380, 'USD', 2, '', '', 40.28, 69.62, 'active', 45, 0, 0, 'Toyota', 'Camry', 2020, 0, 'запчасти', '—', 0, '—', '—', '—', 'чёрный', 'новое'],
 ];
 
-db.transaction(() => {
-  carsData.forEach((row, i) => {
+await db.transaction(async () => {
+  for (let i = 0; i < carsData.length; i++) {
+    const row = carsData[i];
     const [userId, catId, title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top, brand, model, year, mileage, body, engine, vol, trans, drive, fuel, color, condition] = row;
-    const info = insertListing.run(userId, catId, 'cars', title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top);
-    insertCar.run(info.lastInsertRowid, brand, model, year, mileage, body, engine, vol, trans, drive, fuel, color, condition);
-    addMedia(info.lastInsertRowid, carPhotos[i]);
-  });
+    const info = await insertListing.run(userId, catId, 'cars', title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top);
+    await insertCar.run(info.lastInsertRowid, brand, model, year, mileage, body, engine, vol, trans, drive, fuel, color, condition);
+    await addMedia(info.lastInsertRowid, carPhotos[i]);
+  }
 })();
 
 const freelance = [
@@ -217,13 +233,14 @@ const freelance = [
   [3, 19, 'Дизайн мобильного приложения', 'UI-kit, 12 экранов, прототип в Figma, передача разработчикам.', 220, 'USD', 1, '', '', 38.56, 68.787, 'active', 134, 0, 0, 'design', 7, 'UI/UX'],
 ];
 
-db.transaction(() => {
-  freelance.forEach((row, i) => {
+await db.transaction(async () => {
+  for (let i = 0; i < freelance.length; i++) {
+    const row = freelance[i];
     const [userId, catId, title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top, sc, days, st] = row;
-    const info = insertListing.run(userId, catId, 'freelance', title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top);
-    insertFL.run(info.lastInsertRowid, sc, days, st);
-    addMedia(info.lastInsertRowid, flPhotos[i]);
-  });
+    const info = await insertListing.run(userId, catId, 'freelance', title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top);
+    await insertFL.run(info.lastInsertRowid, sc, days, st);
+    await addMedia(info.lastInsertRowid, flPhotos[i]);
+  }
 })();
 
 const clPhotos = [
@@ -264,50 +281,62 @@ const clothing = [
   [8, null, 'Велосипед горный', '24 скорости, состояние хорошее. Торг.', 950, 'TJS', 2, '', '', 40.28, 69.62, 'active', 77, 0, 1, 'sport', 'велосипед', '', 'Stels', 'синий', 'хорошее', ''],
 ];
 
-db.transaction(() => {
-  clothing.forEach((row, i) => {
+await db.transaction(async () => {
+  for (let i = 0; i < clothing.length; i++) {
+    const row = clothing[i];
     const [userId, catId, title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top, cat, kind, size, brand, color, condition, season] = row;
-    const info = insertListing.run(userId, catId, 'clothing', title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top);
-    insertCL.run(info.lastInsertRowid, cat, kind, size, brand, color, condition, season);
-    addMedia(info.lastInsertRowid, clPhotos[i]);
-  });
+    const info = await insertListing.run(userId, catId, 'clothing', title, desc, price, cur, cityId, address, district, lat, lng, status, views, vip, top);
+    await insertCL.run(info.lastInsertRowid, cat, kind, size, brand, color, condition, season);
+    await addMedia(info.lastInsertRowid, clPhotos[i]);
+  }
 })();
 
-db.prepare('INSERT INTO favorites (user_id, listing_id) VALUES (?, ?), (?, ?), (?, ?), (?, ?)').run(2, 1, 2, 11, 2, 21, 3, 12);
-const conv = db.prepare('INSERT INTO conversations (listing_id, buyer_id, seller_id, last_message, last_message_at) VALUES (?, ?, ?, ?, datetime(\'now\'))').run(1, 3, 2, 'Да, свободна.');
-db.prepare('INSERT INTO messages (conversation_id, sender_id, text, is_read) VALUES (?, ?, ?, 1), (?, ?, ?, 1)').run(
+await db.prepare('INSERT INTO favorites (user_id, listing_id) VALUES (?, ?), (?, ?), (?, ?), (?, ?)').run(2, 1, 2, 11, 2, 21, 3, 12);
+const conv = await db.prepare('INSERT INTO conversations (listing_id, buyer_id, seller_id, last_message, last_message_at) VALUES (?, ?, ?, ?, datetime(\'now\'))').run(1, 3, 2, 'Да, свободна.');
+await db.prepare('INSERT INTO messages (conversation_id, sender_id, text, is_read) VALUES (?, ?, ?, 1), (?, ?, ?, 1)').run(
   conv.lastInsertRowid, 3, 'Здравствуйте, квартира ещё свободна?',
   conv.lastInsertRowid, 2, 'Да, свободна. Можем показать сегодня после 16:00.',
 );
-const conv2 = db.prepare('INSERT INTO conversations (listing_id, buyer_id, seller_id, last_message, last_message_at) VALUES (?, ?, ?, ?, datetime(\'now\'))').run(21, 2, 3, 'Могу начать завтра');
-db.prepare('INSERT INTO messages (conversation_id, sender_id, text, is_read) VALUES (?, ?, ?, 1), (?, ?, ?, 0)').run(
+const conv2 = await db.prepare('INSERT INTO conversations (listing_id, buyer_id, seller_id, last_message, last_message_at) VALUES (?, ?, ?, ?, datetime(\'now\'))').run(21, 2, 3, 'Могу начать завтра');
+await db.prepare('INSERT INTO messages (conversation_id, sender_id, text, is_read) VALUES (?, ?, ?, 1), (?, ?, ?, 0)').run(
   conv2.lastInsertRowid, 2, 'Сколько правок входит в логотип?',
   conv2.lastInsertRowid, 3, 'Могу начать завтра. Правки безлимитные до утверждения.',
 );
 
-db.prepare('INSERT INTO notifications (user_id, type, title, body, link, is_read) VALUES (?, ?, ?, ?, ?, 0), (?, ?, ?, ?, ?, 0), (?, ?, ?, ?, ?, 1)').run(
+await db.prepare('INSERT INTO notifications (user_id, type, title, body, link, is_read) VALUES (?, ?, ?, ?, ?, 0), (?, ?, ?, ?, ?, 0), (?, ?, ?, ?, ?, 1)').run(
   2, 'message', 'Новое сообщение от Мадина Каримова', 'Здравствуйте, квартира ещё свободна?', '/messages/1',
   2, 'listing_approved', 'Объявление одобрено', '2-комнатная квартира в Сино опубликовано', '/listings/1',
   3, 'message', 'Новое сообщение от Алекс', 'Сколько правок входит в логотип?', '/messages/2',
 );
 
-db.prepare('INSERT INTO reviews (listing_id, from_user_id, to_user_id, rating, comment) VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)').run(
+await db.prepare('INSERT INTO reviews (listing_id, from_user_id, to_user_id, rating, comment) VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)').run(
   21, 2, 3, 5, 'Логотип получился лучше, чем ждали. Рекомендую.',
   1, 3, 2, 5, 'Квартира как на фото, хозяин пунктуальный.',
 );
 
-db.prepare('INSERT INTO reports (listing_id, user_id, reason, comment, status) VALUES (?, ?, ?, ?, ?)').run(
+await db.prepare('INSERT INTO reports (listing_id, user_id, reason, comment, status) VALUES (?, ?, ?, ?, ?)').run(
   10, 2, 'wrong_info', 'Цена на фото отличается', 'open',
 );
 
-db.prepare('INSERT INTO banners (title, image_url, link, sort_order) VALUES (?, ?, ?, ?)').run(
+await db.prepare('INSERT INTO banners (title, image_url, link, sort_order) VALUES (?, ?, ?, ?)').run(
   'Продвиньте объявление наверх',
   'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1600&q=80',
   '/post',
   1,
 );
 
-db.prepare("INSERT INTO settings (key, value) VALUES ('site_name', 'ARZON MARKET'), ('phone_prefix', '+992'), ('moderation', 'on')").run();
+await db.prepare("INSERT INTO settings (key, value) VALUES ('site_name', 'ARZON MARKET'), ('phone_prefix', '+992'), ('moderation', 'on')").run();
 
-const n = db.prepare('SELECT COUNT(*) AS n FROM listings').get().n;
+const n = (await db.prepare('SELECT COUNT(*) AS n FROM listings').get()).n;
 console.log(`Seeded MARKET: ${users.length} users, ${n} listings`);
+}
+
+const isCli = process.argv[1] && process.argv[1].includes('seed.js');
+if (isCli) {
+  if (process.env.NODE_ENV === 'production' && process.env.FORCE_SEED !== '1') {
+    console.error('Seed in production is blocked. Set FORCE_SEED=1 if you really want to wipe the database.');
+    process.exit(1);
+  }
+  await connectDb();
+  await runSeed();
+}

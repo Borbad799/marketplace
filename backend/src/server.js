@@ -9,7 +9,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
-import { db } from './db.js';
+import { bootstrap, db } from './db.js';
 import { uploadDir } from './middleware/upload.js';
 import { setIo, emitPresence } from './services/notify.js';
 import authRoutes from './routes/auth.js';
@@ -28,15 +28,34 @@ import uploadRoutes from './routes/upload.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = http.createServer(app);
-const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 
-const io = new Server(server, {
-  cors: { origin, credentials: true },
-});
+function allowedOrigins() {
+  const raw = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function originOk(origin) {
+  if (!origin) return true;
+  const list = allowedOrigins();
+  if (list.includes('*') || list.includes(origin)) return true;
+  try {
+    const host = new URL(origin).hostname;
+    return host.endsWith('.vercel.app');
+  } catch {
+    return false;
+  }
+}
+
+const corsOpts = {
+  origin: (origin, cb) => cb(null, originOk(origin)),
+  credentials: true,
+};
+
+const io = new Server(server, { cors: corsOpts });
 setIo(io);
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin, credentials: true }));
+app.use(cors(corsOpts));
 app.use(express.json({ limit: '2mb' }));
 app.use(
   rateLimit({
@@ -85,20 +104,22 @@ io.on('connection', (socket) => {
   if (!socket.userId) return;
   socket.join(`user:${socket.userId}`);
   online.set(socket.userId, (online.get(socket.userId) || 0) + 1);
-  db.prepare("UPDATE users SET last_seen = datetime('now') WHERE id = ?").run(socket.userId);
+  db.prepare("UPDATE users SET last_seen = datetime('now') WHERE id = ?").run(socket.userId).catch(() => {});
   emitPresence(socket.userId, true);
   socket.on('disconnect', () => {
     const n = (online.get(socket.userId) || 1) - 1;
     if (n <= 0) {
       online.delete(socket.userId);
-      db.prepare("UPDATE users SET last_seen = datetime('now') WHERE id = ?").run(socket.userId);
+      db.prepare("UPDATE users SET last_seen = datetime('now') WHERE id = ?").run(socket.userId).catch(() => {});
       emitPresence(socket.userId, false);
     } else online.set(socket.userId, n);
   });
 });
 
 const port = Number(process.env.PORT || 4000);
-server.listen(port, () => {
+
+await bootstrap();
+server.listen(port, '0.0.0.0', () => {
   fs.mkdirSync(path.resolve(__dirname, '../../database'), { recursive: true });
-  console.log(`MARKET API http://localhost:${port}`);
+  console.log(`MARKET API http://0.0.0.0:${port}`);
 });

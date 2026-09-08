@@ -20,7 +20,7 @@ export function listingOrderSql() {
   return ` ORDER BY l.is_top DESC, l.is_vip DESC, COALESCE(l.bumped_at, l.published_at, l.created_at) DESC `;
 }
 
-export function mapListing(row, { favoriteIds = new Set(), extra = true } = {}) {
+export async function mapListing(row, { favoriteIds = new Set(), extra = true } = {}) {
   if (!row) return null;
   const item = {
     id: row.id,
@@ -29,7 +29,7 @@ export function mapListing(row, { favoriteIds = new Set(), extra = true } = {}) 
     type: row.type,
     title: row.title,
     description: row.description,
-    price: row.price,
+    price: row.price == null ? null : Number(row.price),
     currency: row.currency,
     cityId: row.city_id,
     city: row.city_name,
@@ -62,11 +62,11 @@ export function mapListing(row, { favoriteIds = new Set(), extra = true } = {}) 
   };
 
   if (extra) {
-    item.media = db
+    item.media = await db
       .prepare('SELECT id, url, type, sort_order AS sortOrder FROM listing_media WHERE listing_id = ? ORDER BY sort_order, id')
       .all(row.id);
     if (row.type === 'real_estate') {
-      const d = db.prepare('SELECT * FROM real_estate WHERE listing_id = ?').get(row.id);
+      const d = await db.prepare('SELECT * FROM real_estate WHERE listing_id = ?').get(row.id);
       item.realEstate = d
         ? {
             propertyType: d.property_type,
@@ -81,7 +81,7 @@ export function mapListing(row, { favoriteIds = new Set(), extra = true } = {}) 
         : null;
     }
     if (row.type === 'cars') {
-      const d = db.prepare('SELECT * FROM cars WHERE listing_id = ?').get(row.id);
+      const d = await db.prepare('SELECT * FROM cars WHERE listing_id = ?').get(row.id);
       item.car = d
         ? {
             brand: d.brand,
@@ -100,7 +100,7 @@ export function mapListing(row, { favoriteIds = new Set(), extra = true } = {}) 
         : null;
     }
     if (row.type === 'freelance') {
-      const d = db.prepare('SELECT * FROM freelance_services WHERE listing_id = ?').get(row.id);
+      const d = await db.prepare('SELECT * FROM freelance_services WHERE listing_id = ?').get(row.id);
       item.freelance = d
         ? {
             serviceCategory: d.service_category,
@@ -110,7 +110,7 @@ export function mapListing(row, { favoriteIds = new Set(), extra = true } = {}) 
         : null;
     }
     if (row.type === 'clothing') {
-      const d = db.prepare('SELECT * FROM clothing WHERE listing_id = ?').get(row.id);
+      const d = await db.prepare('SELECT * FROM clothing WHERE listing_id = ?').get(row.id);
       item.clothing = d
         ? {
             clothingCategory: d.clothing_category,
@@ -127,17 +127,17 @@ export function mapListing(row, { favoriteIds = new Set(), extra = true } = {}) 
   return item;
 }
 
-export function getListingById(id) {
+export async function getListingById(id) {
   return db.prepare(`${listingBase} WHERE l.id = ?`).get(id);
 }
 
-export function favoriteIdsFor(userId) {
+export async function favoriteIdsFor(userId) {
   if (!userId) return new Set();
-  const rows = db.prepare('SELECT listing_id FROM favorites WHERE user_id = ?').all(userId);
+  const rows = await db.prepare('SELECT listing_id FROM favorites WHERE user_id = ?').all(userId);
   return new Set(rows.map((r) => r.listing_id));
 }
 
-export function listQuery({
+export async function listQuery({
   type,
   status = 'active',
   q,
@@ -314,18 +314,18 @@ export function listQuery({
   }
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const count = db.prepare(`SELECT COUNT(*) AS n FROM listings l LEFT JOIN users u ON u.id = l.user_id ${whereSql}`).get(...params).n;
+  const count = (await db.prepare(`SELECT COUNT(*) AS n FROM listings l LEFT JOIN users u ON u.id = l.user_id ${whereSql}`).get(...params)).n;
   const offset = (Number(page) - 1) * Number(limit);
   let order = listingOrderSql();
   if (nearbyLat && nearbyLng) {
     order = ` ORDER BY ((l.latitude - ${Number(nearbyLat)}) * (l.latitude - ${Number(nearbyLat)}) + (l.longitude - ${Number(nearbyLng)}) * (l.longitude - ${Number(nearbyLng)})) ASC, l.is_top DESC `;
   }
-  const rows = db
+  const rows = await db
     .prepare(`${listingBase} ${whereSql} ${order} LIMIT ? OFFSET ?`)
     .all(...params, Number(limit), offset);
-  const favs = favoriteIdsFor(viewerId);
+  const favs = await favoriteIdsFor(viewerId);
   return {
-    items: rows.map((r) => mapListing(r, { favoriteIds: favs })),
+    items: await Promise.all(rows.map((r) => mapListing(r, { favoriteIds: favs }))),
     total: count,
     page: Number(page),
     limit: Number(limit),

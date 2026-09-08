@@ -9,13 +9,13 @@ export function signToken(user) {
   });
 }
 
-export function optionalAuth(req, _res, next) {
+export async function optionalAuth(req, _res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return next();
   try {
     const payload = jwt.verify(token, secret);
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.id);
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(payload.id);
     if (user && user.status !== 'blocked') req.user = user;
   } catch {
     /* ignore invalid token for optional routes */
@@ -23,8 +23,8 @@ export function optionalAuth(req, _res, next) {
   next();
 }
 
-export function requireAuth(req, res, next) {
-  optionalAuth(req, res, () => {
+export async function requireAuth(req, res, next) {
+  await optionalAuth(req, res, () => {
     if (!req.user) {
       return res.status(401).json({ error: 'Требуется авторизация' });
     }
@@ -32,8 +32,8 @@ export function requireAuth(req, res, next) {
   });
 }
 
-export function requireAdmin(req, res, next) {
-  requireAuth(req, res, () => {
+export async function requireAdmin(req, res, next) {
+  await requireAuth(req, res, () => {
     if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
       return res.status(403).json({ error: 'Недостаточно прав' });
     }

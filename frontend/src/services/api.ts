@@ -1,7 +1,11 @@
 import axios from 'axios'
 import type { Listing, Paged, User } from '../types'
 
-export const api = axios.create({ baseURL: '/api' })
+export const API_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+
+export const api = axios.create({
+  baseURL: API_URL ? `${API_URL}/api` : '/api',
+})
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('market_token')
@@ -20,6 +24,7 @@ api.interceptors.response.use(
 export const mediaSrc = (url?: string | null) => {
   if (!url) return ''
   if (url.startsWith('http') || url.startsWith('blob:')) return url
+  if (url.startsWith('/') && API_URL) return `${API_URL}${url}`
   return url
 }
 

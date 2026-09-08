@@ -6,13 +6,13 @@ export function setIo(io) {
   ioRef = io;
 }
 
-export function notify(userId, { type, title, body, link }) {
-  const info = db
+export async function notify(userId, { type, title, body, link }) {
+  const info = await db
     .prepare(
       `INSERT INTO notifications (user_id, type, title, body, link) VALUES (?, ?, ?, ?, ?)`,
     )
     .run(userId, type, title, body || '', link || null);
-  const row = db.prepare('SELECT * FROM notifications WHERE id = ?').get(info.lastInsertRowid);
+  const row = await db.prepare('SELECT * FROM notifications WHERE id = ?').get(info.lastInsertRowid);
   if (ioRef) ioRef.to(`user:${userId}`).emit('notification', mapNotification(row));
   return row;
 }

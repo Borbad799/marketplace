@@ -1,20 +1,17 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
-import { photoForKind, takeUniquePhoto, photoForRow } from './shopPhotos.js';
+import { createDb, isPostgres } from './db-client.js';
+import { photoForKind, photoForRow } from './shopPhotos.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.resolve(__dirname, process.env.DB_PATH || '../../database/market.db');
+let impl = null;
 
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+export const db = {
+  prepare: (sql) => impl.prepare(sql),
+  exec: (sql) => impl.exec(sql),
+  pragma: (v) => impl.pragma?.(v),
+  transaction: (fn) => impl.transaction(fn),
+};
 
-export const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-export function initSchema() {
-  db.exec(`
+function schemaSql() {
+  let sql = `
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -253,16 +250,24 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_listings_city ON listings(city_id);
     CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, is_read);
-  `);
+  `;
+  if (isPostgres) {
+    sql = sql
+      .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY')
+      .replace(/DEFAULT \(datetime\('now'\)\)/g, 'DEFAULT NOW()');
+  }
+  return sql;
 }
 
-initSchema();
+export async function initSchema() {
+  await db.exec(schemaSql());
+}
 
-export function seedClothingIfEmpty() {
-  const n = db.prepare("SELECT COUNT(*) AS n FROM listings WHERE type = 'clothing'").get().n;
+export async function seedClothingIfEmpty() {
+  const n = (await db.prepare("SELECT COUNT(*) AS n FROM listings WHERE type = 'clothing'").get()).n;
   if (n > 0) return;
-  const user = db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get();
-  const city = db.prepare('SELECT id, latitude, longitude FROM cities ORDER BY id LIMIT 1').get();
+  const user = await db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get();
+  const city = await db.prepare('SELECT id, latitude, longitude FROM cities ORDER BY id LIMIT 1').get();
   if (!user || !city) return;
   const insertListing = db.prepare(`
     INSERT INTO listings (user_id, category_id, type, title, description, price, currency, city_id, address, district, latitude, longitude, status, views, is_vip, is_top, bumped_at, published_at)
@@ -282,22 +287,21 @@ export function seedClothingIfEmpty() {
     ['Кроссовки Nike, 42', 'Оригинал, подошва целая. Коробка есть.', 210, 'shoes', 'кроссовки', '42', 'Nike', 'белый', 'хорошее', 'демисезон', 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1400&q=80'],
     ['Туфли женские 37', 'На каблуке 6 см, надевались два раза.', 120, 'shoes', 'туфли', '37', 'Respect', 'чёрный', 'отличное', 'лето', 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1400&q=80'],
   ];
-  const tx = db.transaction(() => {
+  await db.transaction(async () => {
     for (const it of items) {
       const [title, desc, price, cat, kind, size, brand, color, condition, season, photo] = it;
-      const info = insertListing.run(user.id, title, desc, price, city.id, city.latitude, city.longitude);
-      insertCL.run(info.lastInsertRowid, cat, kind, size, brand, color, condition, season);
-      insertMedia.run(info.lastInsertRowid, photo, 'image', 0);
+      const info = await insertListing.run(user.id, title, desc, price, city.id, city.latitude, city.longitude);
+      await insertCL.run(info.lastInsertRowid, cat, kind, size, brand, color, condition, season);
+      await insertMedia.run(info.lastInsertRowid, photo, 'image', 0);
     }
-  });
-  tx();
+  })();
 }
 
-export function seedShopExtrasIfEmpty() {
-  const n = db.prepare("SELECT COUNT(*) AS n FROM clothing WHERE clothing_category IN ('electronics','home','beauty','sport')").get().n;
+export async function seedShopExtrasIfEmpty() {
+  const n = (await db.prepare("SELECT COUNT(*) AS n FROM clothing WHERE clothing_category IN ('electronics','home','beauty','sport')").get()).n;
   if (n > 0) return;
-  const user = db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get();
-  const city = db.prepare('SELECT id, latitude, longitude FROM cities ORDER BY id LIMIT 1').get();
+  const user = await db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get();
+  const city = await db.prepare('SELECT id, latitude, longitude FROM cities ORDER BY id LIMIT 1').get();
   if (!user || !city) return;
   const insertListing = db.prepare(`
     INSERT INTO listings (user_id, category_id, type, title, description, price, currency, city_id, address, district, latitude, longitude, status, views, is_vip, is_top, bumped_at, published_at)
@@ -317,19 +321,19 @@ export function seedShopExtrasIfEmpty() {
     ['Гантели 2×5 кг', 'Пара гантелей для дома.', 90, 'sport', 'тренажёр', '', '', 'чёрный', 'хорошее', '', 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1400&q=80'],
     ['Велосипед горный', '24 скорости, состояние хорошее.', 950, 'sport', 'велосипед', '', 'Stels', 'синий', 'хорошее', '', 'https://images.unsplash.com/photo-1485965120184-e7b47f5525ec?auto=format&fit=crop&w=1400&q=80'],
   ];
-  db.transaction(() => {
+  await db.transaction(async () => {
     for (const it of items) {
       const [title, desc, price, cat, kind, size, brand, color, condition, season, photo] = it;
-      const info = insertListing.run(user.id, title, desc, price, city.id, city.latitude, city.longitude);
-      insertCL.run(info.lastInsertRowid, cat, kind, size, brand, color, condition, season);
-      insertMedia.run(info.lastInsertRowid, photo, 'image', 0);
+      const info = await insertListing.run(user.id, title, desc, price, city.id, city.latitude, city.longitude);
+      await insertCL.run(info.lastInsertRowid, cat, kind, size, brand, color, condition, season);
+      await insertMedia.run(info.lastInsertRowid, photo, 'image', 0);
     }
   })();
 }
 
-export function seedMissingShopKinds() {
-  const user = db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get();
-  const city = db.prepare('SELECT id, latitude, longitude FROM cities ORDER BY id LIMIT 1').get();
+export async function seedMissingShopKinds() {
+  const user = await db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get();
+  const city = await db.prepare('SELECT id, latitude, longitude FROM cities ORDER BY id LIMIT 1').get();
   if (!user || !city) return;
   const exists = db.prepare('SELECT COUNT(*) AS n FROM clothing WHERE clothing_category = ? AND item_kind = ?');
   const insertListing = db.prepare(`
@@ -407,22 +411,21 @@ export function seedMissingShopKinds() {
     ['sport', 'ролики', 'Ролики 39-42', 180, '40', 'Reaction', photo('photo-1558618666-fcd25c85cd64')],
     ['sport', 'туризм', 'Палатка 2-местная', 320, '', '', photo('photo-1478131143081-80f7f84ca84d')],
   ];
-  const tx = db.transaction(() => {
+  await db.transaction(async () => {
     for (const [cat, kind, title, price, size, brand, img] of items) {
-      if (exists.get(cat, kind).n > 0) continue;
-      const info = insertListing.run(user.id, title, `${title}. Состояние хорошее, самовывоз.`, price, city.id, city.latitude, city.longitude);
-      insertCL.run(info.lastInsertRowid, cat, kind, size, brand, '', 'хорошее', '');
-      insertMedia.run(info.lastInsertRowid, img, 'image', 0);
+      if ((await exists.get(cat, kind)).n > 0) continue;
+      const info = await insertListing.run(user.id, title, `${title}. Состояние хорошее, самовывоз.`, price, city.id, city.latitude, city.longitude);
+      await insertCL.run(info.lastInsertRowid, cat, kind, size, brand, '', 'хорошее', '');
+      await insertMedia.run(info.lastInsertRowid, img, 'image', 0);
     }
-  });
-  tx();
+  })();
 }
 
-export function seedShopVariants() {
-  const user = db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get();
-  const city = db.prepare('SELECT id, latitude, longitude FROM cities ORDER BY id LIMIT 1').get();
+export async function seedShopVariants() {
+  const user = await db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get();
+  const city = await db.prepare('SELECT id, latitude, longitude FROM cities ORDER BY id LIMIT 1').get();
   if (!user || !city) return;
-  const kinds = db.prepare('SELECT clothing_category AS cat, item_kind AS kind, COUNT(*) AS n FROM clothing GROUP BY clothing_category, item_kind').all();
+  const kinds = await db.prepare('SELECT clothing_category AS cat, item_kind AS kind, COUNT(*) AS n FROM clothing GROUP BY clothing_category, item_kind').all();
   const insertListing = db.prepare(`
     INSERT INTO listings (user_id, category_id, type, title, description, price, currency, city_id, address, district, latitude, longitude, status, views, is_vip, is_top, bumped_at, published_at)
     VALUES (?, NULL, 'clothing', ?, ?, ?, 'TJS', ?, '', '', ?, ?, 'active', 16, 0, 0, datetime('now'), datetime('now'))
@@ -441,41 +444,40 @@ export function seedShopVariants() {
     { tag: 'б/у', add: -15 },
     { tag: 'премиум', add: 40 },
   ];
-  const tx = db.transaction(() => {
+  await db.transaction(async () => {
     for (const row of kinds) {
       if (row.n >= 4) continue;
-      const base = sample.get(row.cat, row.kind);
+      const base = await sample.get(row.cat, row.kind);
       if (!base) continue;
       for (let i = 0; i < 4 - row.n; i++) {
         const ex = extras[i] || extras[0];
         const title = `${base.title} · ${ex.tag}`;
         const price = Math.max(20, Number(base.price) + ex.add + i * 8);
-        const info = insertListing.run(user.id, title, `${title}. Только этот вид товара.`, price, city.id, city.latitude, city.longitude);
-        insertCL.run(info.lastInsertRowid, row.cat, row.kind, base.size || '', base.brand || '', base.color || '', base.condition || 'хорошее', base.season || '');
-        insertMedia.run(info.lastInsertRowid, photoForKind(row.kind, info.lastInsertRowid, row.cat), 'image', 0);
+        const info = await insertListing.run(user.id, title, `${title}. Только этот вид товара.`, price, city.id, city.latitude, city.longitude);
+        await insertCL.run(info.lastInsertRowid, row.cat, row.kind, base.size || '', base.brand || '', base.color || '', base.condition || 'хорошее', base.season || '');
+        await insertMedia.run(info.lastInsertRowid, photoForKind(row.kind, info.lastInsertRowid, row.cat), 'image', 0);
       }
     }
-  });
-  tx();
+  })();
 }
 
-export function ensureListingPhotos() {
+export async function ensureListingPhotos() {
   const insert = db.prepare(`INSERT INTO listing_media (listing_id, url, type, sort_order) VALUES (?, ?, 'image', 0)`);
   const kindOf = db.prepare('SELECT item_kind, clothing_category FROM clothing WHERE listing_id = ?');
-  const missing = db
+  const missing = await db
     .prepare(
       `SELECT l.id FROM listings l
        WHERE NOT EXISTS (SELECT 1 FROM listing_media m WHERE m.listing_id = l.id AND m.type = 'image')`,
     )
     .all();
   for (const row of missing) {
-    const cl = kindOf.get(row.id);
-    insert.run(row.id, photoForKind(cl?.item_kind, row.id, cl?.clothing_category));
+    const cl = await kindOf.get(row.id);
+    await insert.run(row.id, photoForKind(cl?.item_kind, row.id, cl?.clothing_category));
   }
 }
 
-export function applyShopPhotos() {
-  const rows = db
+export async function applyShopPhotos() {
+  const rows = await db
     .prepare(
       `SELECT m.id AS media_id, l.id AS listing_id, l.type, l.title,
               cl.item_kind, cl.clothing_category,
@@ -492,22 +494,37 @@ export function applyShopPhotos() {
     .all();
   const upd = db.prepare('UPDATE listing_media SET url = ? WHERE id = ?');
   const usedByKey = new Map();
-  const tx = db.transaction(() => {
+  await db.transaction(async () => {
     for (const r of rows) {
       const key = `${r.type}:${r.clothing_category || ''}:${r.item_kind || ''}:${r.body_type || ''}:${r.property_type || ''}:${r.service_category || ''}`;
       if (!usedByKey.has(key)) usedByKey.set(key, new Set());
       const used = usedByKey.get(key);
       const url = photoForRow({ ...r, id: r.listing_id }, used);
       used.add(url);
-      upd.run(url, r.media_id);
+      await upd.run(url, r.media_id);
     }
-  });
-  tx();
+  })();
 }
 
-seedClothingIfEmpty();
-seedShopExtrasIfEmpty();
-seedMissingShopKinds();
-seedShopVariants();
-ensureListingPhotos();
-applyShopPhotos();
+export async function connectDb() {
+  if (!impl) impl = await createDb();
+  await initSchema();
+  return db;
+}
+
+export async function bootstrap() {
+  await connectDb();
+  const users = await db.prepare('SELECT COUNT(*) AS n FROM users').get();
+  if (!users?.n) {
+    const { runSeed } = await import('./seed.js');
+    await runSeed();
+  }
+  await seedClothingIfEmpty();
+  await seedShopExtrasIfEmpty();
+  await seedMissingShopKinds();
+  await seedShopVariants();
+  await ensureListingPhotos();
+  if (process.env.NODE_ENV !== 'production' || process.env.AUTO_SEED === '1') {
+    await applyShopPhotos();
+  }
+}

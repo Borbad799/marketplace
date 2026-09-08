@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { io, type Socket } from 'socket.io-client'
+import { API_URL } from '../services/api'
 import { useAuth } from '../store/auth'
 
 export function useSocket(onMessage?: (payload: unknown) => void, onNotif?: (payload: unknown) => void) {
@@ -8,7 +9,7 @@ export function useSocket(onMessage?: (payload: unknown) => void, onNotif?: (pay
 
   useEffect(() => {
     if (!token) return
-    const socket = io('/', { auth: { token }, transports: ['websocket', 'polling'] })
+    const socket = io(API_URL || '/', { auth: { token }, transports: ['websocket', 'polling'] })
     ref.current = socket
     if (onMessage) socket.on('message', onMessage)
     if (onNotif) socket.on('notification', onNotif)
