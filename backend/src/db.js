@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { createDb, isPostgres } from './db-client.js';
 import { photoForKind, photoForRow } from './shopPhotos.js';
 
@@ -512,15 +513,37 @@ export async function connectDb() {
   return db;
 }
 
+async function ensureMinimalProduction() {
+  const users = await db.prepare('SELECT COUNT(*) AS n FROM users').get();
+  if (users?.n) return;
+  const cities = await db.prepare('SELECT COUNT(*) AS n FROM cities').get();
+  if (!cities?.n) {
+    await db
+      .prepare('INSERT INTO cities (name, name_ru, latitude, longitude) VALUES (?, ?, ?, ?)')
+      .run('Dushanbe', 'Душанбе', 38.5598, 68.787);
+  }
+  const hash = bcrypt.hashSync('Admin123!', 10);
+  const admin = await db
+    .prepare('INSERT INTO users (name, phone, email, password, avatar, role, rating, reviews_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run('Админ', '+992900000001', 'admin@market.tj', hash, '', 'admin', 5, 0);
+  await db.prepare('INSERT INTO profiles (user_id, bio, city_id) VALUES (?, ?, ?)').run(admin.lastInsertRowid, 'Администратор', 1);
+  const userHash = bcrypt.hashSync('User123!', 10);
+  const user = await db
+    .prepare('INSERT INTO users (name, phone, email, password, avatar, role, rating, reviews_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run('Алекс', '+992900000002', 'alex@market.tj', userHash, '', 'user', 5, 0);
+  await db.prepare('INSERT INTO profiles (user_id, bio, city_id) VALUES (?, ?, ?)').run(user.lastInsertRowid, '', 1);
+}
+
 export async function bootstrap() {
   await connectDb();
+  if (process.env.NODE_ENV === 'production' && process.env.AUTO_SEED !== '1') {
+    await ensureMinimalProduction();
+    return;
+  }
   const users = await db.prepare('SELECT COUNT(*) AS n FROM users').get();
   if (!users?.n) {
     const { runSeed } = await import('./seed.js');
     await runSeed();
-  }
-  if (process.env.NODE_ENV === 'production' && process.env.AUTO_SEED !== '1') {
-    return;
   }
   await seedClothingIfEmpty();
   await seedShopExtrasIfEmpty();
