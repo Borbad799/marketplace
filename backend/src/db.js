@@ -536,8 +536,13 @@ async function ensureMinimalProduction() {
 
 export async function bootstrap() {
   await connectDb();
-  if (process.env.NODE_ENV === 'production' && process.env.AUTO_SEED !== '1') {
-    await ensureMinimalProduction();
+  const hosted = Boolean(process.env.DATABASE_URL);
+  if ((hosted || process.env.NODE_ENV === 'production') && process.env.AUTO_SEED !== '1') {
+    try {
+      await ensureMinimalProduction();
+    } catch (err) {
+      console.error('Minimal seed skipped:', err);
+    }
     return;
   }
   const users = await db.prepare('SELECT COUNT(*) AS n FROM users').get();

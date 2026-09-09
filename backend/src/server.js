@@ -118,8 +118,16 @@ io.on('connection', (socket) => {
 
 const port = Number(process.env.PORT || 4000);
 
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err);
+});
+
 server.listen(port, '0.0.0.0', () => {
-  fs.mkdirSync(path.resolve(__dirname, '../../database'), { recursive: true });
+  try {
+    fs.mkdirSync(path.resolve(__dirname, process.env.UPLOAD_DIR || 'uploads'), { recursive: true });
+  } catch (err) {
+    console.warn('upload dir:', err.message);
+  }
   console.log(`MARKET API http://0.0.0.0:${port}`);
 });
 

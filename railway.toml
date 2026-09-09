@@ -6,7 +6,7 @@ buildCommand = "npm install --prefix backend"
 NIXPACKS_NODE_VERSION = "20"
 
 [deploy]
-startCommand = "npm start --prefix backend"
+startCommand = "NODE_ENV=production npm start --prefix backend"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
