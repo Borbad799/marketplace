@@ -14,7 +14,7 @@ function translateSql(sql) {
   text = text.replace(/datetime\('now'\s*,\s*'([^']+)'\)/gi, (_, rel) => `(NOW() + INTERVAL '${rel.replace(/^\+\s*/, '')}')`);
   text = text.replace(/datetime\('now'\)/gi, 'NOW()');
   text = text.replace(/\bLIKE\b/g, 'ILIKE');
-  if (/^\s*INSERT\b/i.test(text) && !/RETURNING\b/i.test(text)) text += ' RETURNING id';
+  if (/^\s*INSERT\b/i.test(text) && !/RETURNING\b/i.test(text)) text += ' RETURNING *';
   let n = 0;
   return text.replace(/\?/g, () => `$${++n}`);
 }
@@ -47,7 +47,7 @@ function makeStatement(queryFn, sql) {
       const result = await queryFn(text, params);
       const last = result.rows?.[result.rows.length - 1];
       return {
-        lastInsertRowid: last?.id ?? 0,
+        lastInsertRowid: last?.id ?? last?.listing_id ?? 0,
         changes: result.rowCount ?? 0,
       };
     },
