@@ -118,15 +118,15 @@ io.on('connection', (socket) => {
 
 const port = Number(process.env.PORT || 4000);
 
-try {
-  console.log('Starting MARKET API, database:', process.env.DATABASE_URL ? 'postgres' : 'sqlite');
-  await bootstrap();
-} catch (err) {
-  console.error('Database bootstrap failed:', err);
-  process.exit(1);
-}
-
 server.listen(port, '0.0.0.0', () => {
   fs.mkdirSync(path.resolve(__dirname, '../../database'), { recursive: true });
   console.log(`MARKET API http://0.0.0.0:${port}`);
 });
+
+try {
+  console.log('Starting MARKET API, database:', process.env.DATABASE_URL ? 'postgres' : 'sqlite');
+  await bootstrap();
+  console.log('Database ready');
+} catch (err) {
+  console.error('Database bootstrap failed:', err);
+}
