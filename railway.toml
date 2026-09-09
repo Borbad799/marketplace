@@ -2,6 +2,9 @@
 builder = "NIXPACKS"
 buildCommand = "npm install --prefix backend"
 
+[variables]
+NIXPACKS_NODE_VERSION = "20"
+
 [deploy]
 startCommand = "npm start --prefix backend"
 healthcheckPath = "/api/health"

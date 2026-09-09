@@ -519,12 +519,13 @@ export async function bootstrap() {
     const { runSeed } = await import('./seed.js');
     await runSeed();
   }
+  if (process.env.NODE_ENV === 'production' && process.env.AUTO_SEED !== '1') {
+    return;
+  }
   await seedClothingIfEmpty();
   await seedShopExtrasIfEmpty();
   await seedMissingShopKinds();
   await seedShopVariants();
   await ensureListingPhotos();
-  if (process.env.NODE_ENV !== 'production' || process.env.AUTO_SEED === '1') {
-    await applyShopPhotos();
-  }
+  await applyShopPhotos();
 }
