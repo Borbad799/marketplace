@@ -60,6 +60,7 @@ async function createPostgres() {
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
     max: 10,
+    connectionTimeoutMillis: 15000,
   });
   const query = (text, params) => {
     const client = als.getStore();
