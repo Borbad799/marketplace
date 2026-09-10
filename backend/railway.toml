@@ -3,9 +3,10 @@ builder = "NIXPACKS"
 
 [variables]
 NIXPACKS_NODE_VERSION = "20"
+NODE_ENV = "production"
 
 [deploy]
-startCommand = "NODE_ENV=production npm start"
+startCommand = "node src/server.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

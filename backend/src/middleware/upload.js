@@ -4,8 +4,12 @@ import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const uploadDir = path.resolve(__dirname, '../../', process.env.UPLOAD_DIR || 'uploads');
-fs.mkdirSync(uploadDir, { recursive: true });
+export const uploadDir = path.resolve(__dirname, '../..', process.env.UPLOAD_DIR || 'uploads');
+try {
+  fs.mkdirSync(uploadDir, { recursive: true });
+} catch (err) {
+  console.warn('upload dir:', err.message);
+}
 
 const allowed = new Set([
   'image/jpeg',
