@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { MessagesApi, UploadApi } from '../services/api'
+import { API_URL, MessagesApi, UploadApi } from '../services/api'
 import { useAuth, useUi } from '../store/auth'
 import { Protected } from '../components/Layout'
 import type { ChatMessage, Conversation } from '../types'
@@ -48,7 +48,7 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!token) return
-    const socket = io('/', { auth: { token } })
+    const socket = io(API_URL || '/', { auth: { token } })
     socket.on('message', (payload: { conversationId: number; message: ChatMessage }) => {
       if (Number(id) === payload.conversationId) {
         setMessages((m) => [...m, payload.message])

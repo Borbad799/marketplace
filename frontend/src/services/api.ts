@@ -1,7 +1,10 @@
 import axios from 'axios'
 import type { Listing, Paged, User } from '../types'
 
-export const API_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+const PRODUCTION_API = 'https://marketplace-production-2afd.up.railway.app'
+export const API_URL = String(
+  import.meta.env.VITE_API_URL || (import.meta.env.PROD ? PRODUCTION_API : ''),
+).replace(/\/$/, '')
 
 export const api = axios.create({
   baseURL: API_URL ? `${API_URL}/api` : '/api',
