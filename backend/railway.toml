@@ -1,12 +1,9 @@
 [build]
-builder = "NIXPACKS"
-
-[variables]
-NIXPACKS_NODE_VERSION = "20"
-NODE_ENV = "production"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "node src/server.js"
 healthcheckPath = "/api/health"
-healthcheckTimeout = 300
+healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"

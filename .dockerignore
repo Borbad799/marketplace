@@ -1,0 +1,7 @@
+node_modules
+frontend
+database
+backend/node_modules
+backend/uploads
+**/.env
+.git
