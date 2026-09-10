@@ -2,9 +2,18 @@ import axios from 'axios'
 import type { Listing, Paged, User } from '../types'
 
 const PRODUCTION_API = 'https://marketplace-production-2afd.up.railway.app'
-export const API_URL = String(
-  import.meta.env.VITE_API_URL || (import.meta.env.PROD ? PRODUCTION_API : ''),
-).replace(/\/$/, '')
+
+function resolveApiUrl() {
+  const raw = String(import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '')
+  const usable =
+    /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(:\d+)?$/i.test(raw) &&
+    !/[^\x00-\x7F]/.test(raw) &&
+    !/ваш|что-то|xxxx|your-service|example\.com/i.test(raw)
+  if (import.meta.env.PROD) return usable ? raw : PRODUCTION_API
+  return usable ? raw : ''
+}
+
+export const API_URL = resolveApiUrl()
 
 export const api = axios.create({
   baseURL: API_URL ? `${API_URL}/api` : '/api',

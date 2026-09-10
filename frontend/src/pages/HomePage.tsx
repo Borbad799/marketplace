@@ -34,6 +34,11 @@ export default function HomePage() {
       setFl(c.data.items)
       setCl(d.data.items)
     } catch {
+      setPopular([])
+      setRe([])
+      setCars([])
+      setFl([])
+      setCl([])
       setErr(true)
     } finally {
       setLoading(false)
@@ -43,8 +48,6 @@ export default function HomePage() {
   useEffect(() => {
     load()
   }, [])
-
-  if (err) return <ErrorState onRetry={load} />
 
   const Section = ({ title, to, items }: { title: string; to: string; items: Listing[] }) => {
     const photos = photosForListings(items)
@@ -95,6 +98,7 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+      {err ? <div className="mt-6"><ErrorState onRetry={load} /></div> : null}
       <Section title="🔥 Популярные объявления" to="/search" items={popular} />
       <Section title="👕 Одежда и обувь" to="/men" items={cl} />
       <Section title="🏠 Недвижимость" to="/real-estate" items={re} />

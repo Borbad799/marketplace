@@ -1,3 +1,13 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://marketplace-production-2afd.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://marketplace-production-2afd.up.railway.app/uploads/:path*"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
