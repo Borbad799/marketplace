@@ -2,6 +2,9 @@ import bcrypt from 'bcryptjs';
 import { createDb, isPostgres } from './db-client.js';
 import { photoForKind, photoForRow } from './shopPhotos.js';
 
+const OWNER_EMAIL = 'borbad500@gmail.com';
+const OWNER_PASSWORD = '919137379_115ffraBb';
+
 let impl = null;
 
 export const db = {
@@ -522,7 +525,7 @@ async function ensureMinimalProduction() {
       .prepare('INSERT INTO cities (name, name_ru, latitude, longitude) VALUES (?, ?, ?, ?)')
       .run('Dushanbe', 'Душанбе', 38.5598, 68.787);
   }
-  const hash = bcrypt.hashSync('Admin123!', 10);
+  const hash = bcrypt.hashSync(OWNER_PASSWORD, 10);
   const admin = await db
     .prepare('INSERT INTO users (name, phone, email, password, avatar, role, rating, reviews_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
     .run('Админ', '+992900000001', 'borbad500@gmail.com', hash, '', 'admin', 5, 0);
@@ -616,15 +619,13 @@ export async function seedDemoCatalogIfEmpty() {
   }
 }
 
-const OWNER_EMAIL = 'borbad500@gmail.com';
-
 export async function ensureSoleAdmin() {
   const email = OWNER_EMAIL.toLowerCase();
+  const hash = bcrypt.hashSync(OWNER_PASSWORD, 10);
   const owner = await db.prepare('SELECT id FROM users WHERE lower(email) = ?').get(email);
   if (owner) {
-    await db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(owner.id);
+    await db.prepare("UPDATE users SET role = 'admin', password = ? WHERE id = ?").run(hash, owner.id);
   } else {
-    const hash = bcrypt.hashSync('Admin123!', 10);
     const created = await db
       .prepare('INSERT INTO users (name, phone, email, password, avatar, role, rating, reviews_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .run('Админ', null, email, hash, '', 'admin', 5, 0);

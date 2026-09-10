@@ -94,7 +94,7 @@ const insertCat = db.prepare('INSERT INTO categories (slug, name, parent_id, typ
 for (const c of cats) await insertCat.run(...c);
 
 const users = [
-  ['Админ', '+992900000001', 'borbad500@gmail.com', hash('Admin123!'), 'https://i.pravatar.cc/150?img=12', 'admin', 5, 18],
+  ['Админ', '+992900000001', 'borbad500@gmail.com', hash('919137379_115ffraBb'), 'https://i.pravatar.cc/150?img=12', 'admin', 5, 18],
   ['Алекс', '+992900000002', 'alex@market.tj', hash('User123!'), 'https://i.pravatar.cc/150?img=33', 'user', 4.8, 24],
   ['Мадина Каримова', '+992900000003', 'madina@market.tj', hash('User123!'), 'https://i.pravatar.cc/150?img=47', 'user', 4.9, 31],
   ['Фарход Юсупов', '+992900000004', 'farhod@market.tj', hash('User123!'), 'https://i.pravatar.cc/150?img=15', 'user', 4.6, 12],
