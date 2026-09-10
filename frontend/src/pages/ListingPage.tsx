@@ -9,7 +9,7 @@ import { ListingsApi, MessagesApi, PromoApi, ReportsApi, ReviewsApi } from '../s
 import { useAuth, useUi } from '../store/auth'
 import type { Listing } from '../types'
 import { formatPrice, REPORT_REASONS, timeAgo, TYPE_LABEL } from '../utils/format'
-import { photoForListing } from '../utils/shopPhotos'
+import { listingCover, listingImages, listingVideo } from '../utils/listingPhoto'
 import { Flag, Heart, MessageCircle, Phone, Share2 } from 'lucide-react'
 import { FavoritesApi } from '../services/api'
 
@@ -40,12 +40,9 @@ export default function ListingPage() {
   if (err) return <ErrorState onRetry={load} />
   if (!item) return <div className="h-80 animate-pulse rounded-3xl bg-line" />
 
-  const kindPhoto = photoForListing(item)
-  const images = (item.media || [])
-    .filter((m) => m.type === 'image')
-    .map((_, i) => photoForListing(item, i))
-    .filter(Boolean)
-  const video = (item.media || []).find((m) => m.type === 'video')?.url || item.videoUrl
+  const kindPhoto = listingCover(item)
+  const images = listingImages(item)
+  const video = listingVideo(item)
   const mine = user?.id === item.userId
 
   async function chat() {

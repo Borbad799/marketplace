@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { FavoritesApi, ListingsApi, PromoApi, UploadApi, UsersApi } from '../services/api'
+import { FavoritesApi, ListingsApi, PromoApi, UsersApi } from '../services/api'
 import { Avatar } from '../components/Avatar'
 import { useAuth, useUi } from '../store/auth'
 import { CardSkeleton, ListingCard, Stars } from '../components/ListingCard'
@@ -11,7 +11,8 @@ import { Bell } from 'lucide-react'
 import { NotifApi } from '../services/api'
 import type { NotificationItem } from '../types'
 import { Photo } from '../components/Photo'
-import { photoForListing } from '../utils/shopPhotos'
+import { listingCover } from '../utils/listingPhoto'
+import { fileToDataUrl } from '../utils/imageFile'
 
 export default function ProfilePage() {
   const user = useAuth((s) => s.user)
@@ -121,7 +122,7 @@ export function MyListingsPage() {
         {items.length === 0 && <EmptyState />}
         {items.map((it) => (
           <div key={it.id} className="flex gap-3 rounded-3xl bg-white p-3 shadow-[var(--shadow-card)]">
-            <Photo src={photoForListing(it)} alt={it.title} fallbackSrc={photoForListing(it, 1)} className="h-24 w-28 rounded-2xl object-cover bg-line" />
+            <Photo src={listingCover(it)} alt={it.title} className="h-24 w-28 rounded-2xl object-cover bg-line" />
             <div className="min-w-0 flex-1">
               <Link to={`/listings/${it.id}`} className="font-bold">{it.title}</Link>
               <p className="text-sm text-muted">{STATUS_LABEL[it.status]} {it.rejectReason ? `· ${it.rejectReason}` : ''}</p>
@@ -158,8 +159,7 @@ export function SettingsPage() {
         onSubmit={async (e) => {
           e.preventDefault()
           try {
-            const payload = user?.role === 'admin' ? form : { name: form.name, phone: form.phone, bio: form.bio }
-            const { data } = await UsersApi.updateMe(payload)
+            const { data } = await UsersApi.updateMe(form)
             if (token) setSession(token, data.user)
             toast('Сохранено')
           } catch (err) {
@@ -174,28 +174,26 @@ export function SettingsPage() {
         <Field label="Телефон">
           <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </Field>
-        {user?.role === 'admin' ? (
-          <Field label="Фото профиля">
-            <div className="flex items-center gap-3">
-              <Avatar src={form.avatar} name={form.name} className="h-16 w-16 text-lg" />
-              <input
-                type="file"
-                accept="image/*"
-                className="text-sm"
-                onChange={async (e) => {
-                  const files = e.target.files
-                  if (!files?.length) return
-                  try {
-                    const uploaded = await UploadApi.files(files)
-                    if (uploaded[0]?.url) setForm((s) => ({ ...s, avatar: uploaded[0].url }))
-                  } catch (err) {
-                    toast((err as Error).message, 'err')
-                  }
-                }}
-              />
-            </div>
-          </Field>
-        ) : null}
+        <Field label="Фото профиля">
+          <div className="flex items-center gap-3">
+            <Avatar src={form.avatar} name={form.name} className="h-16 w-16 text-lg" />
+            <input
+              type="file"
+              accept="image/*"
+              className="text-sm"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                try {
+                  const url = await fileToDataUrl(file, 512, 0.8)
+                  setForm((s) => ({ ...s, avatar: url }))
+                } catch (err) {
+                  toast((err as Error).message, 'err')
+                }
+              }}
+            />
+          </div>
+        </Field>
         <Field label="О себе">
           <textarea className={areaClass} value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} />
         </Field>

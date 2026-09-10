@@ -35,7 +35,7 @@ api.interceptors.response.use(
 
 export const mediaSrc = (url?: string | null) => {
   if (!url) return ''
-  if (url.startsWith('http') || url.startsWith('blob:')) return url
+  if (url.startsWith('data:') || url.startsWith('http') || url.startsWith('blob:')) return url
   if (url.startsWith('/') && API_URL) return `${API_URL}${url}`
   return url
 }

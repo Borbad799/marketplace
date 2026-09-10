@@ -6,7 +6,7 @@ import { EmptyState, ErrorState } from '../components/Layout'
 import { ListingsApi } from '../services/api'
 import type { Listing } from '../types'
 import { CLOTHING_NAV } from '../utils/format'
-import { photosForListings } from '../utils/shopPhotos'
+import { listingCover } from '../utils/listingPhoto'
 
 export default function HomePage() {
   const [popular, setPopular] = useState<Listing[]>([])
@@ -50,7 +50,6 @@ export default function HomePage() {
   }, [])
 
   const Section = ({ title, to, items }: { title: string; to: string; items: Listing[] }) => {
-    const photos = photosForListings(items)
     return (
     <section className="mt-10">
       <div className="mb-4 flex items-end justify-between">
@@ -64,7 +63,7 @@ export default function HomePage() {
       ) : items.length ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {items.map((it) => (
-            <ListingCard key={it.id} item={it} photoUrl={photos[it.id]} />
+            <ListingCard key={it.id} item={it} photoUrl={listingCover(it)} />
           ))}
         </div>
       ) : (

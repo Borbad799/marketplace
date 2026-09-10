@@ -6,7 +6,7 @@ import { useAuth, useUi } from '../store/auth'
 import { FavoritesApi } from '../services/api'
 import { useState } from 'react'
 import { Photo } from './Photo'
-import { photoForListing } from '../utils/shopPhotos'
+import { listingCover } from '../utils/listingPhoto'
 
 export function Stars({ value = 0, size = 14 }: { value?: number; size?: number }) {
   const full = Math.round(value)
@@ -58,9 +58,8 @@ export function ListingCard({ item, onChange, photoUrl }: { item: Listing; onCha
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-line">
         <Photo
-          src={photoUrl || photoForListing(item)}
+          src={photoUrl || listingCover(item)}
           alt={item.title}
-          fallbackSrc={photoForListing(item, 1)}
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
         <div className="absolute left-2 top-2 flex gap-1">

@@ -47,7 +47,7 @@ export async function setupApp(app, server) {
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cors(corsOpts));
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({ limit: '8mb' }));
   app.use(
     rateLimit({
       windowMs: 60 * 1000,

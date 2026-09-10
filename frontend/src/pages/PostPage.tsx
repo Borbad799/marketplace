@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ListingsApi, MetaApi, UploadApi } from '../services/api'
+import { fileToDataUrl } from '../utils/imageFile'
 import { Field, Protected, areaClass, inputClass } from '../components/Layout'
 import { useUi } from '../store/auth'
 import type { City, ListingType } from '../types'
@@ -143,10 +144,18 @@ export function ListingFormPage({ type, editId }: { type?: ListingType; editId?:
   async function onFiles(files: FileList | null) {
     if (!files?.length) return
     try {
-      const uploaded = await UploadApi.files(files)
-      setPhotos((p) => [...p, ...uploaded.filter((f) => f.type === 'image').map((f) => f.url)])
-      const vid = uploaded.find((f) => f.type === 'video')
-      if (vid) set('videoUrl', vid.url)
+      const images: string[] = []
+      const videos: File[] = []
+      for (const file of Array.from(files)) {
+        if (file.type.startsWith('image/')) images.push(await fileToDataUrl(file))
+        else videos.push(file)
+      }
+      if (images.length) setPhotos((p) => [...p, ...images])
+      if (videos.length) {
+        const uploaded = await UploadApi.files(videos)
+        const vid = uploaded.find((f) => f.type === 'video')
+        if (vid) set('videoUrl', vid.url)
+      }
     } catch (e) {
       toast((e as Error).message, 'err')
     }

@@ -6,7 +6,7 @@ import { CardSkeleton, ListingCard } from '../components/ListingCard'
 import { EmptyState, ErrorState, inputClass } from '../components/Layout'
 import { SearchBar } from '../components/SearchBar'
 import { CAR_BODIES, CLOTHING_NAV, CLOTHING_SUBS, FREELANCE_CATS, FUELS, PROPERTY_TYPES, RENOVATIONS, TRANSMISSIONS, TYPE_LABEL } from '../utils/format'
-import { photosForListings } from '../utils/shopPhotos'
+import { listingCover } from '../utils/listingPhoto'
 import { ChevronLeft } from 'lucide-react'
 
 const titles: Record<string, string> = {
@@ -82,7 +82,6 @@ export default function CatalogPage({ type, clothingCategory }: { type?: Listing
     return true
   })
   const visible = shopPage ? shown : items
-  const photos = photosForListings(visible)
 
   const list = (
     <>
@@ -141,7 +140,7 @@ export default function CatalogPage({ type, clothingCategory }: { type?: Listing
       ) : (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {visible.map((it) => (
-            <ListingCard key={it.id} item={it} photoUrl={photos[it.id]} />
+            <ListingCard key={it.id} item={it} photoUrl={listingCover(it)} />
           ))}
         </div>
       )}
