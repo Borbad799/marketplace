@@ -643,6 +643,9 @@ export async function bootstrap() {
     try {
       await ensureMinimalProduction();
       await seedDemoCatalogIfEmpty();
+      await seedMissingShopKinds();
+      await seedShopVariants();
+      await ensureListingPhotos();
     } catch (err) {
       console.error('Minimal seed skipped:', err);
     }

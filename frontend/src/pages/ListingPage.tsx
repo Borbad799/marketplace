@@ -41,7 +41,7 @@ export default function ListingPage() {
   if (!item) return <div className="h-80 animate-pulse rounded-3xl bg-line" />
 
   const kindPhoto = listingCover(item)
-  const images = listingImages(item)
+  const images = listingImages(item).length ? listingImages(item) : [kindPhoto]
   const video = listingVideo(item)
   const mine = user?.id === item.userId
 

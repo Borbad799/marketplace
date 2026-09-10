@@ -12,7 +12,9 @@ export function Photo({
   className?: string
   fallbackSrc?: string
 }) {
-  const chain = [mediaSrc(src), mediaSrc(fallbackSrc)].filter((u, i, a) => Boolean(u) && a.indexOf(u) === i) as string[]
+  const chain = [mediaSrc(src), mediaSrc(fallbackSrc), `https://picsum.photos/seed/${encodeURIComponent(alt || src || 'photo')}/800/600`].filter(
+    (u, i, a) => Boolean(u) && a.indexOf(u) === i,
+  ) as string[]
   const [i, setI] = useState(0)
   const url = chain[i] || ''
 

@@ -19,6 +19,10 @@ export function listingCover(item: Listing) {
   return listingImages(item)[0] || photoForListing(item)
 }
 
+export function listingCoverFallback(item: Listing) {
+  return photoForListing(item, 1) || photoForListing(item, 2)
+}
+
 export function listingVideo(item: Listing) {
   const url = (item.media || []).find((m) => m.type === 'video')?.url || item.videoUrl
   return url ? mediaSrc(url) : ''

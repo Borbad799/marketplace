@@ -11,7 +11,7 @@ import { Bell } from 'lucide-react'
 import { NotifApi } from '../services/api'
 import type { NotificationItem } from '../types'
 import { Photo } from '../components/Photo'
-import { listingCover } from '../utils/listingPhoto'
+import { listingCover, listingCoverFallback } from '../utils/listingPhoto'
 import { fileToDataUrl } from '../utils/imageFile'
 
 export default function ProfilePage() {
@@ -122,7 +122,7 @@ export function MyListingsPage() {
         {items.length === 0 && <EmptyState />}
         {items.map((it) => (
           <div key={it.id} className="flex gap-3 rounded-3xl bg-white p-3 shadow-[var(--shadow-card)]">
-            <Photo src={listingCover(it)} alt={it.title} className="h-24 w-28 rounded-2xl object-cover bg-line" />
+            <Photo src={listingCover(it)} alt={it.title} fallbackSrc={listingCoverFallback(it)} className="h-24 w-28 rounded-2xl object-cover bg-line" />
             <div className="min-w-0 flex-1">
               <Link to={`/listings/${it.id}`} className="font-bold">{it.title}</Link>
               <p className="text-sm text-muted">{STATUS_LABEL[it.status]} {it.rejectReason ? `· ${it.rejectReason}` : ''}</p>
