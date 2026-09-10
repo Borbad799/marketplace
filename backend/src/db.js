@@ -534,12 +534,95 @@ async function ensureMinimalProduction() {
   await db.prepare('INSERT INTO profiles (user_id, bio, city_id) VALUES (?, ?, ?)').run(user.lastInsertRowid, '', 1);
 }
 
+export async function seedDemoCatalogIfEmpty() {
+  const user = await db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get();
+  const city = await db.prepare('SELECT id, latitude, longitude FROM cities ORDER BY id LIMIT 1').get();
+  if (!user || !city) return;
+
+  const insertListing = db.prepare(`
+    INSERT INTO listings (user_id, category_id, type, title, description, price, currency, city_id, address, district, latitude, longitude, status, views, is_vip, is_top, bumped_at, published_at)
+    VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, datetime('now'), datetime('now'))
+  `);
+  const insertRE = db.prepare(
+    'INSERT INTO real_estate (listing_id, property_type, deal_type, rooms, area, floor, floors, renovation, furniture) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  );
+  const insertCar = db.prepare(
+    'INSERT INTO cars (listing_id, brand, model, year, mileage, body_type, engine, engine_volume, transmission, drive, fuel, color, condition) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  );
+  const insertFL = db.prepare(
+    'INSERT INTO freelance_services (listing_id, service_category, delivery_days, service_type) VALUES (?, ?, ?, ?)',
+  );
+  const insertCL = db.prepare(
+    'INSERT INTO clothing (listing_id, clothing_category, item_kind, size, brand, color, condition, season) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+  );
+  const insertMedia = db.prepare('INSERT INTO listing_media (listing_id, url, type, sort_order) VALUES (?, ?, ?, ?)');
+  const photo = (id) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1400&q=80`;
+  const countType = async (type) => (await db.prepare('SELECT COUNT(*) AS n FROM listings WHERE type = ?').get(type)).n;
+
+  if (!(await countType('real_estate'))) {
+    const items = [
+      ['2-комнатная квартира в Сино', 'Светлая квартира после ремонта, мебель остаётся.', 85000, 'USD', 'Сино', 312, 1, 0, 'apartment', 'sale', 2, 78, 5, 9, 'евро', 1, 'photo-1502672260266-1c1ef2d93688'],
+      ['3-комнатная квартира в центре', 'Просторная квартира с видом на город.', 128000, 'USD', 'Центр', 210, 0, 1, 'apartment', 'sale', 3, 112, 8, 12, 'дизайнерский', 1, 'photo-1560448204-e02f11c3d0e2'],
+      ['Дом 180 м² с двором', 'Дом в тихом районе, сад и гараж на 2 машины.', 95000, 'USD', '', 145, 0, 0, 'house', 'sale', 5, 180, 1, 2, 'хороший', 1, 'photo-1600596542815-ffad4c1539a9'],
+      ['Комната в аренду', 'Сдаётся комната, интернет и кухня общие.', 250, 'USD', 'Исмоили Сомони', 88, 0, 0, 'room', 'rent', 1, 18, 3, 5, 'косметический', 1, 'photo-1493809842364-78817add7e54'],
+      ['Офис 64 м²', 'Помещение под салон или магазин, отдельный вход.', 45000, 'USD', 'Фирдавси', 67, 0, 0, 'commercial', 'sale', 0, 64, 1, 4, 'евро', 0, 'photo-1497366216548-37526070297c'],
+      ['1-комнатная посуточно', 'Чистая квартира, Wi-Fi и кондиционер.', 40, 'USD', 'Центр', 410, 0, 0, 'apartment', 'rent', 1, 38, 4, 7, 'евро', 1, 'photo-1522708323590-d24dbb6b0267'],
+    ];
+    for (const it of items) {
+      const [title, desc, price, cur, district, views, vip, top, pType, deal, rooms, area, floor, floors, renovation, furniture, img] = it;
+      const info = await insertListing.run(user.id, 'real_estate', title, desc, price, cur, city.id, '', district, city.latitude, city.longitude, views, vip, top);
+      await insertRE.run(info.lastInsertRowid, pType, deal, rooms, area, floor, floors, renovation, furniture);
+      await insertMedia.run(info.lastInsertRowid, photo(img), 'image', 0);
+    }
+  }
+
+  if (!(await countType('cars'))) {
+    const items = [
+      ['Toyota Camry 2019', 'Один хозяин, полный сервис, без ДТП.', 23500, 520, 1, 0, 'Toyota', 'Camry', 2019, 64000, 'седан', 2.5, 'автомат', 'передний', 'бензин', 'белый', 'photo-1621007947382-bb3c9980e2de'],
+      ['Hyundai Tucson 2021', 'Полный привод, зимняя резина в комплекте.', 27800, 301, 0, 1, 'Hyundai', 'Tucson', 2021, 41000, 'кроссовер', 2.0, 'автомат', 'полный', 'бензин', 'серый', 'photo-1552519507-da3b142c6e3d'],
+      ['Honda Accord 2018', 'Американская сборка, газ+бензин.', 16800, 188, 0, 0, 'Honda', 'Accord', 2018, 98000, 'седан', 2.4, 'автомат', 'передний', 'бензин', 'чёрный', 'photo-1606664515524-ed2f786a0bd6'],
+      ['Mercedes-Benz E-Class 2017', 'AMG пакет, панорама, память сидений.', 32900, 266, 1, 0, 'Mercedes-Benz', 'E-Class', 2017, 87000, 'седан', 2.0, 'автомат', 'задний', 'бензин', 'синий', 'photo-1617531658526-da3d7a31f32c'],
+      ['BMW X5 2016', 'Полная комплектация, сервисная книжка.', 28500, 174, 0, 0, 'BMW', 'X5', 2016, 112000, 'внедорожник', 3.0, 'автомат', 'полный', 'дизель', 'чёрный', 'photo-1555215695-3004980ad54e'],
+      ['Kia K5 2022', 'Почти новая, ещё на гарантии.', 24900, 221, 0, 0, 'Kia', 'K5', 2022, 18000, 'седан', 2.0, 'автомат', 'передний', 'бензин', 'красный', 'photo-1542362567-b07e54358753'],
+    ];
+    for (const it of items) {
+      const [title, desc, price, views, vip, top, brand, model, year, mileage, body, vol, trans, drive, fuel, color, img] = it;
+      const info = await insertListing.run(user.id, 'cars', title, desc, price, 'USD', city.id, '', '', city.latitude, city.longitude, views, vip, top);
+      await insertCar.run(info.lastInsertRowid, brand, model, year, mileage, body, fuel, vol, trans, drive, fuel, color, 'отличное');
+      await insertMedia.run(info.lastInsertRowid, photo(img), 'image', 0);
+    }
+  }
+
+  if (!(await countType('freelance'))) {
+    const items = [
+      ['Сделаю профессиональный логотип', '3 концепции, исходники и правки до утверждения.', 20, 640, 1, 1, 'design', 2, 'логотип', 'photo-1561070791-2526d30994b5'],
+      ['Разработка сайта на React', 'Лендинг или магазин, адаптив и админка.', 400, 210, 0, 0, 'programming', 10, 'веб-разработка', 'photo-1498050108023-c5249f4df085'],
+      ['SMM продвижение Instagram', 'Контент-план, дизайн постов и таргет.', 150, 180, 0, 1, 'smm', 30, 'продвижение', 'photo-1611162617474-5b21e879e113'],
+      ['Переводы RU–TJ–EN', 'Документы, сайты и субтитры.', 8, 96, 0, 0, 'translation', 1, 'перевод', 'photo-1454165804606-c3d57bc86b40'],
+      ['Монтаж видео и Reels', 'Динамичный монтаж, субтитры и цветокор.', 35, 155, 1, 0, 'video', 2, 'монтаж', 'photo-1574717024653-61fd2cf4d44d'],
+      ['Дизайн мобильного приложения', 'UI-kit, 12 экранов и прототип в Figma.', 220, 134, 0, 0, 'design', 7, 'UI/UX', 'photo-1522202176988-66273c2fd55f'],
+    ];
+    for (const it of items) {
+      const [title, desc, price, views, vip, top, sc, days, st, img] = it;
+      const info = await insertListing.run(user.id, 'freelance', title, desc, price, 'USD', city.id, '', '', city.latitude, city.longitude, views, vip, top);
+      await insertFL.run(info.lastInsertRowid, sc, days, st);
+      await insertMedia.run(info.lastInsertRowid, photo(img), 'image', 0);
+    }
+  }
+
+  if (!(await countType('clothing'))) {
+    await seedClothingIfEmpty();
+    await seedShopExtrasIfEmpty();
+  }
+}
+
 export async function bootstrap() {
   await connectDb();
   const hosted = Boolean(process.env.DATABASE_URL);
   if ((hosted || process.env.NODE_ENV === 'production') && process.env.AUTO_SEED !== '1') {
     try {
       await ensureMinimalProduction();
+      await seedDemoCatalogIfEmpty();
     } catch (err) {
       console.error('Minimal seed skipped:', err);
     }
