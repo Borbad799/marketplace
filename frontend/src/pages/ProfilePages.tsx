@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { FavoritesApi, ListingsApi, PromoApi, UsersApi } from '../services/api'
+import { FavoritesApi, ListingsApi, PromoApi, UploadApi, UsersApi } from '../services/api'
+import { Avatar } from '../components/Avatar'
 import { useAuth, useUi } from '../store/auth'
 import { CardSkeleton, ListingCard, Stars } from '../components/ListingCard'
 import { EmptyState, Field, Protected, inputClass, areaClass } from '../components/Layout'
@@ -20,7 +21,7 @@ export default function ProfilePage() {
     <Protected>
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center gap-4 rounded-3xl bg-white p-5 shadow-[var(--shadow-card)]">
-          <img src={user?.avatar || 'https://i.pravatar.cc/120'} className="h-20 w-20 rounded-full object-cover" alt="" />
+          <Avatar src={user?.avatar} name={user?.name} className="h-20 w-20 text-xl" />
           <div className="flex-1">
             <h1 className="text-2xl font-extrabold">{user?.name}</h1>
             <div className="mt-1 flex items-center gap-2 text-sm text-muted">
@@ -157,7 +158,8 @@ export function SettingsPage() {
         onSubmit={async (e) => {
           e.preventDefault()
           try {
-            const { data } = await UsersApi.updateMe(form)
+            const payload = user?.role === 'admin' ? form : { name: form.name, phone: form.phone, bio: form.bio }
+            const { data } = await UsersApi.updateMe(payload)
             if (token) setSession(token, data.user)
             toast('Сохранено')
           } catch (err) {
@@ -172,9 +174,28 @@ export function SettingsPage() {
         <Field label="Телефон">
           <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </Field>
-        <Field label="Аватар URL">
-          <input className={inputClass} value={form.avatar} onChange={(e) => setForm({ ...form, avatar: e.target.value })} />
-        </Field>
+        {user?.role === 'admin' ? (
+          <Field label="Фото профиля">
+            <div className="flex items-center gap-3">
+              <Avatar src={form.avatar} name={form.name} className="h-16 w-16 text-lg" />
+              <input
+                type="file"
+                accept="image/*"
+                className="text-sm"
+                onChange={async (e) => {
+                  const files = e.target.files
+                  if (!files?.length) return
+                  try {
+                    const uploaded = await UploadApi.files(files)
+                    if (uploaded[0]?.url) setForm((s) => ({ ...s, avatar: uploaded[0].url }))
+                  } catch (err) {
+                    toast((err as Error).message, 'err')
+                  }
+                }}
+              />
+            </div>
+          </Field>
+        ) : null}
         <Field label="О себе">
           <textarea className={areaClass} value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} />
         </Field>
@@ -238,7 +259,7 @@ export function PublicProfilePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4 rounded-3xl bg-white p-5 shadow-[var(--shadow-card)]">
-        <img src={data.user.avatar || ''} className="h-20 w-20 rounded-full object-cover" alt="" />
+        <Avatar src={data.user.avatar} name={data.user.name} className="h-20 w-20 text-xl" />
         <div>
           <h1 className="text-2xl font-extrabold">{data.user.name}</h1>
           <Stars value={data.user.rating} /> {data.user.rating}

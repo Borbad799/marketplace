@@ -42,7 +42,12 @@ router.put('/me', requireAuth, async (req, res) => {
     if (taken) return res.status(409).json({ error: 'Этот номер уже занят' });
     await db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(phone || null, req.user.id);
   }
-  if (avatar !== undefined) await db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar, req.user.id);
+  if (avatar !== undefined) {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Только администратор может менять фото профиля' });
+    }
+    await db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar || '', req.user.id);
+  }
   await db.prepare('INSERT OR IGNORE INTO profiles (user_id) VALUES (?)').run(req.user.id);
   await db
     .prepare('UPDATE profiles SET bio = COALESCE(?, bio), city_id = COALESCE(?, city_id), address = COALESCE(?, address) WHERE user_id = ?')

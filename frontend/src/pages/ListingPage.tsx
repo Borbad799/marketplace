@@ -4,6 +4,7 @@ import { Gallery } from '../components/Gallery'
 import { MapView } from '../components/MapView'
 import { ErrorState, inputClass } from '../components/Layout'
 import { Stars } from '../components/ListingCard'
+import { Avatar } from '../components/Avatar'
 import { ListingsApi, MessagesApi, PromoApi, ReportsApi, ReviewsApi } from '../services/api'
 import { useAuth, useUi } from '../store/auth'
 import type { Listing } from '../types'
@@ -182,7 +183,7 @@ export default function ListingPage() {
         </div>
 
         <Link to={`/users/${item.userId}`} className="flex items-center gap-3 rounded-3xl bg-white p-4 shadow-[var(--shadow-card)]">
-          <img src={item.seller?.avatar || 'https://i.pravatar.cc/80'} className="h-14 w-14 rounded-full object-cover" alt="" />
+          <Avatar src={item.seller?.avatar} name={item.seller?.name} className="h-14 w-14 text-base" />
           <div>
             <div className="font-bold">{item.seller?.name}</div>
             <div className="flex items-center gap-1 text-sm text-muted">

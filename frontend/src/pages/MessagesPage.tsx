@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { API_URL, MessagesApi, UploadApi } from '../services/api'
+import { Avatar } from '../components/Avatar'
 import { useAuth, useUi } from '../store/auth'
 import { Protected } from '../components/Layout'
 import type { ChatMessage, Conversation } from '../types'
@@ -87,7 +88,7 @@ export default function MessagesPage() {
                 onClick={() => nav(`/messages/${c.id}`)}
                 className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-bg ${Number(id) === c.id ? 'bg-bg' : ''}`}
               >
-                <img src={c.other.avatar || 'https://i.pravatar.cc/80'} className="h-12 w-12 rounded-full object-cover" alt="" />
+                <Avatar src={c.other.avatar} name={c.other.name} className="h-12 w-12 text-sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex justify-between gap-2">
                     <span className="font-bold">{c.other.name}</span>
@@ -106,7 +107,7 @@ export default function MessagesPage() {
             <>
               <div className="flex items-center gap-3 border-b border-line p-4">
                 <Link to="/messages" className="md:hidden text-primary font-bold">←</Link>
-                <img src={current.other.avatar || ''} className="h-10 w-10 rounded-full object-cover" alt="" />
+                <Avatar src={current.other.avatar} name={current.other.name} className="h-10 w-10 text-sm" />
                 <div>
                   <div className="font-bold">{current.other.name}</div>
                   <div className="text-xs text-muted">{current.other.lastSeen ? 'был(а) недавно' : 'онлайн'}</div>
