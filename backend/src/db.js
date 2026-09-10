@@ -525,7 +525,7 @@ async function ensureMinimalProduction() {
   const hash = bcrypt.hashSync('Admin123!', 10);
   const admin = await db
     .prepare('INSERT INTO users (name, phone, email, password, avatar, role, rating, reviews_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .run('Админ', '+992900000001', 'admin@market.tj', hash, '', 'admin', 5, 0);
+    .run('Админ', '+992900000001', 'borbad500@gmail.com', hash, '', 'admin', 5, 0);
   await db.prepare('INSERT INTO profiles (user_id, bio, city_id) VALUES (?, ?, ?)').run(admin.lastInsertRowid, 'Администратор', 1);
   const userHash = bcrypt.hashSync('User123!', 10);
   const user = await db
@@ -616,6 +616,25 @@ export async function seedDemoCatalogIfEmpty() {
   }
 }
 
+const OWNER_EMAIL = 'borbad500@gmail.com';
+
+export async function ensureSoleAdmin() {
+  const email = OWNER_EMAIL.toLowerCase();
+  const owner = await db.prepare('SELECT id FROM users WHERE lower(email) = ?').get(email);
+  if (owner) {
+    await db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(owner.id);
+  } else {
+    const hash = bcrypt.hashSync('Admin123!', 10);
+    const created = await db
+      .prepare('INSERT INTO users (name, phone, email, password, avatar, role, rating, reviews_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run('Админ', null, email, hash, '', 'admin', 5, 0);
+    await db.prepare('INSERT INTO profiles (user_id, bio) VALUES (?, ?)').run(created.lastInsertRowid, 'Администратор');
+  }
+  await db
+    .prepare("UPDATE users SET role = 'user' WHERE role IN ('admin', 'moderator') AND lower(COALESCE(email, '')) != ?")
+    .run(email);
+}
+
 export async function bootstrap() {
   await connectDb();
   const hosted = Boolean(process.env.DATABASE_URL);
@@ -626,17 +645,22 @@ export async function bootstrap() {
     } catch (err) {
       console.error('Minimal seed skipped:', err);
     }
-    return;
+  } else {
+    const users = await db.prepare('SELECT COUNT(*) AS n FROM users').get();
+    if (!users?.n) {
+      const { runSeed } = await import('./seed.js');
+      await runSeed();
+    }
+    await seedClothingIfEmpty();
+    await seedShopExtrasIfEmpty();
+    await seedMissingShopKinds();
+    await seedShopVariants();
+    await ensureListingPhotos();
+    await applyShopPhotos();
   }
-  const users = await db.prepare('SELECT COUNT(*) AS n FROM users').get();
-  if (!users?.n) {
-    const { runSeed } = await import('./seed.js');
-    await runSeed();
+  try {
+    await ensureSoleAdmin();
+  } catch (err) {
+    console.error('Admin owner sync skipped:', err);
   }
-  await seedClothingIfEmpty();
-  await seedShopExtrasIfEmpty();
-  await seedMissingShopKinds();
-  await seedShopVariants();
-  await ensureListingPhotos();
-  await applyShopPhotos();
 }
